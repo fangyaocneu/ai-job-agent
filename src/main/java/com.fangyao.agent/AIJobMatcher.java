@@ -19,26 +19,33 @@ public class AIJobMatcher {
     public JobMatchResult scoreJob(Job job) {
 
         String prompt = """
-                You are evaluating whether a job is a good match for a software engineering candidate.
+                You are evaluating how well a job matches a software engineering candidate.
 
                 Candidate Profile:
                 %s
 
-                Job Information:
-                Title: %s
-                Company: %s
-                Location: %s
+                Job Title:
+                %s
+
+                Company:
+                %s
+
+                Location:
+                %s
 
                 Job Description:
                 %s
 
-                Evaluate how well this job matches the candidate.
+                Evaluate the job against the candidate profile.
 
-                Return exactly in this format:
+                Return exactly this format:
 
                 Score: <0-100>
                 Reason: <one short sentence>
                 Gap: <one short sentence>
+
+                The score should reflect how closely the role matches the candidate's
+                skills, experience, and target software engineering roles.
                 """.formatted(
                 profile.getProfileSummary(),
                 job.getTitle(),
@@ -57,14 +64,13 @@ public class AIJobMatcher {
                 client.responses().create(params);
 
         String output =
-                extractText(response);
+                extractOutputText(response);
 
         JobMatchResult result =
                 parseResult(output);
 
-        System.out.println(
-                "\n===== AI JOB MATCH ====="
-        );
+        System.out.println();
+        System.out.println("===== AI JOB MATCH =====");
 
         System.out.println(
                 "Job: "
@@ -73,54 +79,60 @@ public class AIJobMatcher {
                         + job.getCompany()
         );
 
-        System.out.println(result);
+        System.out.println(
+                "Score: " + result.getScore()
+        );
 
         System.out.println(
-                "========================\n"
+                "Reason: " + result.getReason()
         );
+
+        System.out.println(
+                "Gap: " + result.getGap()
+        );
+
+        System.out.println();
+        System.out.println("========================");
+        System.out.println();
 
         return result;
     }
 
-    private String extractText(Response response) {
+    private String extractOutputText(Response response) {
 
-        String responseString =
+        String raw =
                 response.toString();
 
-        int textStart =
-                responseString.indexOf("text=");
+        int start =
+                raw.indexOf("text=");
 
-        if (textStart == -1) {
-            throw new RuntimeException(
-                    "Could not find AI response text."
+        if (start == -1) {
+            throw new IllegalStateException(
+                    "Could not find text in OpenAI response."
             );
         }
 
-        textStart += 5;
+        start += "text=".length();
 
-        int textEnd =
-                responseString.indexOf(
+        int end =
+                raw.indexOf(
                         ", type=output_text",
-                        textStart
+                        start
                 );
 
-        if (textEnd == -1) {
-            throw new RuntimeException(
-                    "Could not parse AI response text."
+        if (end == -1) {
+            throw new IllegalStateException(
+                    "Could not parse OpenAI response text."
             );
         }
 
-        return responseString
-                .substring(
-                        textStart,
-                        textEnd
-                )
-                .trim();
+        return raw.substring(
+                start,
+                end
+        ).trim();
     }
 
-    private JobMatchResult parseResult(
-            String output
-    ) {
+    private JobMatchResult parseResult(String output) {
 
         int score = 0;
         String reason = "";
@@ -131,33 +143,42 @@ public class AIJobMatcher {
 
         for (String line : lines) {
 
-            line = line.trim();
+            String trimmed =
+                    line.trim();
 
-            if (line.startsWith("Score:")) {
+            if (trimmed.startsWith("Score:")) {
 
-                String scoreText =
-                        line.substring(
-                                "Score:".length()
-                        ).trim();
+                String value =
+                        trimmed
+                                .substring(
+                                        "Score:".length()
+                                )
+                                .trim();
 
                 score =
-                        Integer.parseInt(
-                                scoreText
-                        );
+                        Integer.parseInt(value);
 
-            } else if (line.startsWith("Reason:")) {
+            } else if (
+                    trimmed.startsWith("Reason:")
+            ) {
 
                 reason =
-                        line.substring(
-                                "Reason:".length()
-                        ).trim();
+                        trimmed
+                                .substring(
+                                        "Reason:".length()
+                                )
+                                .trim();
 
-            } else if (line.startsWith("Gap:")) {
+            } else if (
+                    trimmed.startsWith("Gap:")
+            ) {
 
                 gap =
-                        line.substring(
-                                "Gap:".length()
-                        ).trim();
+                        trimmed
+                                .substring(
+                                        "Gap:".length()
+                                )
+                                .trim();
             }
         }
 
@@ -166,5 +187,10 @@ public class AIJobMatcher {
                 reason,
                 gap
         );
+    }
+
+    public void close() {
+
+        client.close();
     }
 }

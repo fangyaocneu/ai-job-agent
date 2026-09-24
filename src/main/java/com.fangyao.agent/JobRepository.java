@@ -4,8 +4,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class JobRepository {
+
 
     public boolean save(Job job) {
 
@@ -143,4 +146,57 @@ public class JobRepository {
             return false;
         }
     }
+    public List<Job> getUnscoredJobs() {
+
+    List<Job> jobs = new ArrayList<>();
+
+    String sql = """
+            SELECT
+                id,
+                external_id,
+                title,
+                company,
+                location,
+                url,
+                published_at,
+                description,
+                match_score,
+                match_reason,
+                match_gap
+            FROM jobs
+            WHERE match_score IS NULL
+            ORDER BY first_seen_at ASC
+            LIMIT 20
+            """;
+
+    try (Connection connection = DatabaseConfig.getConnection();
+         PreparedStatement statement = connection.prepareStatement(sql);
+         ResultSet resultSet = statement.executeQuery()) {
+
+        while (resultSet.next()) {
+
+            Job job = new Job(
+                    resultSet.getString("external_id"),
+                    resultSet.getString("title"),
+                    resultSet.getString("company"),
+                    resultSet.getString("location"),
+                    resultSet.getString("url"),
+                    resultSet.getTimestamp("published_at") != null
+                            ? resultSet.getTimestamp("published_at").toLocalDateTime()
+                            : null,
+                    resultSet.getString("description")
+            );
+
+            job.setId(resultSet.getInt("id"));
+
+            jobs.add(job);
+        }
+
+    } catch (SQLException e) {
+        System.err.println("[Database Error] Failed to load unscored jobs.");
+        e.printStackTrace();
+    }
+
+    return jobs;
+}
 }
