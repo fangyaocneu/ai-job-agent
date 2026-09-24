@@ -56,14 +56,26 @@ public class DailyJobRunner {
                 // Skip obviously irrelevant jobs before calling OpenAI
                 if (!preFilter.shouldScore(job)) {
 
-                    System.out.println(
-                            "[PreFilter] Skipping irrelevant job ID: "
-                                    + job.getId()
-                                    + " | "
-                                    + job.getTitle()
-                    );
+                        System.out.println(
+                        "[PreFilter] Skipping irrelevant job ID: "
+                        + job.getId()
+                        + " | "
+                        + job.getTitle()
+                );
 
-                    continue;
+                JobMatchResult filteredResult =
+                        new JobMatchResult(
+                    0,
+                    "Rejected by pre-filter.",
+                    "Job title or seniority does not match target software engineering roles."
+                );
+
+                jobRepository.updateMatchResult(
+                 job.getId(),
+                filteredResult
+                );
+
+                continue;
                 }
 
                 try {

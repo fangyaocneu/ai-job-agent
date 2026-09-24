@@ -26,24 +26,54 @@ public class JobPreFilter {
             "data scientist"
     );
 
+    private static final List<String> SENIORITY_EXCLUDES = List.of(
+            "senior",
+            "sr.",
+            "staff",
+            "principal",
+            "lead",
+            "manager",
+            "director",
+            "architect"
+    );
+
     public boolean shouldScore(Job job) {
 
-        String title = job.getTitle() == null
-                ? ""
-                : job.getTitle().toLowerCase();
+        String title = normalize(job.getTitle());
+        String description = normalize(job.getDescription());
 
+        String combined = title + " " + description;
+
+        // 1. Remove clearly irrelevant roles
         for (String excluded : EXCLUDE_KEYWORDS) {
             if (title.contains(excluded)) {
                 return false;
             }
         }
 
+        // 2. Remove roles that are too senior
+        for (String senior : SENIORITY_EXCLUDES) {
+            if (title.contains(senior)) {
+                return false;
+            }
+        }
+
+        // 3. Keep roles that match software engineering keywords
         for (String relevant : RELEVANT_KEYWORDS) {
-            if (title.contains(relevant)) {
+            if (combined.contains(relevant)) {
                 return true;
             }
         }
 
         return false;
     }
-}   
+
+    private String normalize(String text) {
+
+        if (text == null) {
+            return "";
+        }
+
+        return text.toLowerCase();
+    }
+}
