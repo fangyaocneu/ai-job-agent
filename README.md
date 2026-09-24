@@ -1,24 +1,39 @@
 # AI Job Agent
 
-A Java-based AI job search agent that automatically retrieves software engineering job postings, stores and deduplicates them in PostgreSQL, evaluates job fit using OpenAI, and sends high-match opportunities by email.
+A Java-based AI job search agent that automatically aggregates software engineering job postings from multiple sources, stores and deduplicates them in PostgreSQL, evaluates job fit using OpenAI, and sends high-match opportunities by email.
+
+The application is also containerized with Docker so the same workflow can run consistently across different environments.
 
 ## Features
 
-- Searches for software engineering jobs using configurable keywords
+- Aggregates job postings from multiple sources:
+  - Remotive
+  - Remote OK
+- Searches for software engineering roles using configurable keywords
 - Stores jobs in PostgreSQL
 - Prevents duplicate job insertion using external job IDs
-- Uses a rule-based pre-filter to skip obviously irrelevant jobs
+- Uses a rule-based pre-filter to remove obviously irrelevant roles
+- Filters out overly senior positions such as:
+  - Senior
+  - Staff
+  - Principal
+  - Manager
+  - Director
+  - Architect
 - Uses OpenAI to generate:
   - Match score
   - Match reason
   - Skill gap
-- Automatically retries previously unscored jobs
-- Filters jobs by AI match score before sending email
+- Automatically retries jobs that were not successfully scored
+- Marks pre-filtered jobs so they are not repeatedly processed
+- Filters jobs by AI match score before email delivery
 - Tracks previously sent jobs to prevent duplicate notifications
 - Supports scheduled execution using Windows Task Scheduler
 - Uses environment variables for credentials and secrets
 - Writes execution logs for scheduled runs
 - Safely closes the OpenAI client after execution
+- Packaged as a standalone executable JAR
+- Containerized with Docker
 
 ## Tech Stack
 
@@ -28,39 +43,43 @@ A Java-based AI job search agent that automatically retrieves software engineeri
 - OpenAI Java SDK
 - Jakarta Mail
 - Java HTTP Client
+- Jackson
+- Docker
 - Windows Task Scheduler
+- Git / GitHub
 
-## Workflow
+## Architecture
 
 ```text
-Job Search API
-      |
-      v
-Search Jobs
-      |
-      v
+Remotive --------\
+                  \
+                   -> Job Ingestion
+                  /
+Remote OK -------/
+        |
+        v
 PostgreSQL
-      |
-      v
+        |
+        v
 Deduplication
-      |
-      v
+        |
+        v
 Rule-Based Pre-Filter
-      |
-      v
+        |
+        v
 Find Unscored Jobs
-      |
-      v
+        |
+        v
 OpenAI Job Matching
-      |
-      v
+        |
+        v
 Store Score / Reason / Gap
-      |
-      v
+        |
+        v
 Match Score Filter
-      |
-      v
+        |
+        v
 Email Notification
-      |
-      v
+        |
+        v
 Sent Job Tracking
