@@ -11,11 +11,21 @@ public class DailyJobRunner {
         AIJobMatcher matcher = null;
 
         try {
-            SearchJobs searchJobs = new SearchJobs();
-            JobRepository jobRepository = new JobRepository();
-            JobPreFilter preFilter = new JobPreFilter();
 
-            matcher = new AIJobMatcher();
+            SearchJobs searchJobs =
+                    new SearchJobs();
+
+            RemoteOkSearchJobs remoteOkSearchJobs =
+                    new RemoteOkSearchJobs();
+
+            JobRepository jobRepository =
+                    new JobRepository();
+
+            JobPreFilter preFilter =
+                    new JobPreFilter();
+
+            matcher =
+                    new AIJobMatcher();
 
             String[] keywords = {
                     "Java",
@@ -23,22 +33,47 @@ public class DailyJobRunner {
                     "software engineer"
             };
 
-            // Step 1: Search new jobs and save them into database
+            // Step 1A: Search Remotive jobs
             for (String keyword : keywords) {
 
-                List<Job> newJobs = searchJobs.search(keyword);
+                List<Job> newJobs =
+                        searchJobs.search(keyword);
 
                 if (newJobs.isEmpty()) {
+
                     System.out.println(
-                            "No new jobs found for keyword: " + keyword
+                            "[Remotive] No new jobs found for keyword: "
+                                    + keyword
                     );
+
                 } else {
+
                     System.out.println(
-                            "Found " + newJobs.size()
+                            "[Remotive] Found "
+                                    + newJobs.size()
                                     + " new jobs for keyword: "
                                     + keyword
                     );
                 }
+            }
+
+            // Step 1B: Search Remote OK jobs
+            List<Job> remoteOkJobs =
+                    remoteOkSearchJobs.search();
+
+            if (remoteOkJobs.isEmpty()) {
+
+                System.out.println(
+                        "[RemoteOK] No new jobs found."
+                );
+
+            } else {
+
+                System.out.println(
+                        "[RemoteOK] Found "
+                                + remoteOkJobs.size()
+                                + " new jobs."
+                );
             }
 
             // Step 2: Find jobs that have not been scored yet
@@ -53,32 +88,50 @@ public class DailyJobRunner {
             // Step 3: Pre-filter and score relevant jobs
             for (Job job : unscoredJobs) {
 
-                // Skip obviously irrelevant jobs before calling OpenAI
+                // Skip obviously irrelevant or overly senior jobs
                 if (!preFilter.shouldScore(job)) {
 
+                    System.out.println(
+                            "[PreFilter] Skipping irrelevant job ID: "
+                                    + job.getId()
+                                    + " | "
+                                    + job.getTitle()
+                    );
+
+                    JobMatchResult filteredResult =
+                            new JobMatchResult(
+                                    0,
+                                    "Rejected by pre-filter.",
+                                    "Job title or seniority does not match target software engineering roles."
+                            );
+
+                    boolean updated =
+                            jobRepository.updateMatchResult(
+                                    job.getId(),
+                                    filteredResult
+                            );
+
+                    if (updated) {
+
                         System.out.println(
-                        "[PreFilter] Skipping irrelevant job ID: "
-                        + job.getId()
-                        + " | "
-                        + job.getTitle()
-                );
+                                "[PreFilter] Marked job ID "
+                                        + job.getId()
+                                        + " as filtered."
+                        );
 
-                JobMatchResult filteredResult =
-                        new JobMatchResult(
-                    0,
-                    "Rejected by pre-filter.",
-                    "Job title or seniority does not match target software engineering roles."
-                );
+                    } else {
 
-                jobRepository.updateMatchResult(
-                 job.getId(),
-                filteredResult
-                );
+                        System.out.println(
+                                "[PreFilter] Failed to update job ID: "
+                                        + job.getId()
+                        );
+                    }
 
-                continue;
+                    continue;
                 }
 
                 try {
+
                     System.out.println(
                             "[AI Matcher] Scoring job ID: "
                                     + job.getId()
@@ -96,11 +149,14 @@ public class DailyJobRunner {
                             );
 
                     if (updated) {
+
                         System.out.println(
                                 "[AI Matcher] Updated job ID: "
                                         + job.getId()
                         );
+
                     } else {
+
                         System.out.println(
                                 "[AI Matcher] Failed to update job ID: "
                                         + job.getId()
@@ -126,20 +182,24 @@ public class DailyJobRunner {
                     System.getenv("EMAIL_APP_PASSWORD");
 
             if (email == null || email.isBlank()) {
+
                 System.err.println(
                         "[Email Error] EMAIL_ADDRESS is missing."
                 );
+
                 return;
             }
 
             if (appPassword == null || appPassword.isBlank()) {
+
                 System.err.println(
                         "[Email Error] EMAIL_APP_PASSWORD is missing."
                 );
+
                 return;
             }
 
-            // Step 5: Send high-match jobs by email
+            // Step 5: Send high-match unsent jobs by email
             SentJobRepository sentJobRepository =
                     new SentJobRepository();
 
@@ -168,6 +228,7 @@ public class DailyJobRunner {
         } finally {
 
             if (matcher != null) {
+
                 matcher.close();
             }
 

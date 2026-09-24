@@ -11,7 +11,6 @@ public class JobPreFilter {
             "backend",
             "java",
             "spring",
-            "api",
             "full-stack",
             "full stack"
     );
@@ -23,7 +22,18 @@ public class JobPreFilter {
             "office assistant",
             "customer service",
             "content reviewer",
-            "data scientist"
+            "data scientist",
+            "marketing",
+            "payroll",
+            "paralegal",
+            "account executive",
+            "people operations",
+            "human resources",
+            "hr ",
+            "recruiter",
+            "business development",
+            "pricing",
+            "analyst"
     );
 
     private static final List<String> SENIORITY_EXCLUDES = List.of(
@@ -34,15 +44,14 @@ public class JobPreFilter {
             "lead",
             "manager",
             "director",
-            "architect"
+            "architect",
+            "vp",
+            "vice president"
     );
 
     public boolean shouldScore(Job job) {
 
         String title = normalize(job.getTitle());
-        String description = normalize(job.getDescription());
-
-        String combined = title + " " + description;
 
         // 1. Remove clearly irrelevant roles
         for (String excluded : EXCLUDE_KEYWORDS) {
@@ -58,9 +67,9 @@ public class JobPreFilter {
             }
         }
 
-        // 3. Keep roles that match software engineering keywords
+        // 3. Only use the title to decide whether the role is relevant
         for (String relevant : RELEVANT_KEYWORDS) {
-            if (combined.contains(relevant)) {
+            if (title.contains(relevant)) {
                 return true;
             }
         }
@@ -74,6 +83,6 @@ public class JobPreFilter {
             return "";
         }
 
-        return text.toLowerCase();
+        return text.toLowerCase().trim();
     }
 }
