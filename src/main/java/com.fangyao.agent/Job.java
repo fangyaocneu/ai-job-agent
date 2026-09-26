@@ -16,10 +16,13 @@ public class Job {
     private String url;
     private LocalDateTime publishedAt;
     private String description;
+    private boolean favorite;
+    private boolean applied;
+    private boolean ignored;
 
     public Integer getMatchScore() {
-    return matchScore;
-}
+        return matchScore;
+    }
 
     public void setMatchScore(Integer matchScore) {
         this.matchScore = matchScore;
@@ -93,5 +96,29 @@ public class Job {
 
     public String getDescription() {
         return description;
+    }
+
+    public boolean isFavorite() {
+        return favorite;
+    }
+
+    public void setFavorite(boolean favorite) {
+        this.favorite = favorite;
+    }
+
+    public boolean isApplied() {
+        return applied;
+    }
+
+    public void setApplied(boolean applied) {
+        this.applied = applied;
+    }
+
+    public boolean isIgnored() {
+        return ignored;
+    }
+
+    public void setIgnored(boolean ignored) {
+        this.ignored = ignored;
     }
 }
