@@ -127,3 +127,92 @@ Job tracking state is persisted in PostgreSQL.
   - Serves the React application
   - Routes /api/* traffic to the backend load balancer
   - Provides HTTPS access to the application
+
+  # AI Job Agent
+
+An AI-powered job search, matching, and application-management platform built with Java, Spring Boot, React, PostgreSQL, OpenAI, Docker, and AWS.
+
+The system automatically collects job postings, normalizes and deduplicates them, applies rule-based filtering, runs a multi-agent AI workflow to analyze candidate-job fit, sends email notifications, and provides a web dashboard for tracking applications and follow-ups.
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+## Current Status
+
+- Phase 1 — Job ingestion ✅
+- Phase 2 — AI scoring + scheduled automation ✅
+- Phase 3 — Full-stack dashboard + AWS deployment ✅
+- Phase 4 — Application tracking + follow-up reminders ✅
+- Phase 5 — Multi-agent workflow 🚧 In Progress
+
+Phase 5 currently includes a working local agent chain:
+
+```text
+PreFilterAgent
+      ↓
+JobAnalysisAgent
+      ↓
+MatchAgent
+      ↓
+StrategyAgent
+
+## Phase 5 Architecture
+
+                 JOB SOURCE LAYER
+                        │
+          ┌─────────────┴─────────────┐
+          ▼                           ▼
+  RemotiveJobSource           RemoteOkJobSource
+          │                           │
+          └─────────────┬─────────────┘
+                        ▼
+                JobSource Interface
+                        │
+                        ▼
+              JobIngestionService
+                        │
+                        ▼
+                 PostgreSQL / RDS
+                        │
+                        ▼
+                   AgentContext
+                        │
+                        ▼
+                PreFilterAgent
+                        │
+                        ▼
+               JobAnalysisAgent
+                        │
+               structured analysis
+                        │
+                        ▼
+                   MatchAgent
+                        │
+              MatchEvaluation
+                        │
+                        ▼
+                 StrategyAgent
+                        │
+                        ▼
+             ApplicationStrategy
+                        │
+          ┌─────────────┼─────────────┐
+          ▼             ▼             ▼
+         DB         Dashboard       Email
+
+## Application Workflow
+
+DailyJobRunner
+      ↓
+DailyJobWorkflow
+      ↓
+JobIngestionService
+      ↓
+PreFilterAgent
+      ↓
+JobAnalysisAgent
+      ↓
+MatchAgent
+      ↓
+StrategyAgent
+      ↓
+Database + Email + Dashboard

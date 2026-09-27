@@ -15,9 +15,11 @@ public class Main {
 
     public static void main(String[] args) {
 
-        OpenAIClient client = OpenAIOkHttpClient.fromEnv();
+        OpenAIClient client =
+                OpenAIOkHttpClient.fromEnv();
 
-        Scanner scanner = new Scanner(System.in);
+        Scanner scanner =
+                new Scanner(System.in);
 
         String previousResponseId = null;
 
@@ -32,11 +34,16 @@ public class Main {
 
             System.out.print("You: ");
 
-            String userInput = scanner.nextLine();
+            String userInput =
+                    scanner.nextLine();
 
             // Exit command
             if (userInput.equalsIgnoreCase("exit")) {
-                System.out.println("Agent: Goodbye!");
+
+                System.out.println(
+                        "Agent: Goodbye!"
+                );
+
                 break;
             }
 
@@ -50,13 +57,15 @@ public class Main {
                             .model("gpt-5.6-luna")
                             .addTool(GetWeather.class)
                             .addTool(GetCurrentTime.class)
-                            .addTool(SearchJobs.class)
                             .input(userInput);
 
             // If we already have conversation history,
-            // connect this request to the previous response
+            // connect this request to the previous response.
             if (previousResponseId != null) {
-                requestBuilder.previousResponseId(previousResponseId);
+
+                requestBuilder.previousResponseId(
+                        previousResponseId
+                );
             }
 
             Response response =
@@ -72,7 +81,8 @@ public class Main {
                 List<ResponseInputItem> toolOutputs =
                         new ArrayList<>();
 
-                // Look through everything returned by the model
+                // Look through everything returned
+                // by the model.
                 for (var item : response.output()) {
 
                     if (item.isFunctionCall()) {
@@ -85,14 +95,17 @@ public class Main {
                                         + functionCall.name()
                         );
 
-                        String result = 
-                                ToolExecutor.execute(functionCall);
+                        String result =
+                                ToolExecutor.execute(
+                                        functionCall
+                                );
 
                         System.out.println(
-                                "[Tool Result] " + result
+                                "[Tool Result] "
+                                        + result
                         );
 
-                        // Save tool output
+                        // Save tool output.
                         toolOutputs.add(
                                 ResponseInputItem.ofFunctionCallOutput(
                                         ResponseInputItem
@@ -118,15 +131,18 @@ public class Main {
                     response.output().stream()
                             .flatMap(
                                     item ->
-                                            item.message().stream()
+                                            item.message()
+                                                    .stream()
                             )
                             .flatMap(
                                     message ->
-                                            message.content().stream()
+                                            message.content()
+                                                    .stream()
                             )
                             .flatMap(
                                     content ->
-                                            content.outputText().stream()
+                                            content.outputText()
+                                                    .stream()
                             )
                             .forEach(
                                     output ->
@@ -137,7 +153,7 @@ public class Main {
                             );
 
                     // Remember this response
-                    // for the next conversation turn
+                    // for the next conversation turn.
                     previousResponseId =
                             response.id();
 
@@ -154,7 +170,6 @@ public class Main {
                                 .model("gpt-5.6-luna")
                                 .addTool(GetWeather.class)
                                 .addTool(GetCurrentTime.class)
-                                .addTool(SearchJobs.class)
                                 .previousResponseId(
                                         response.id()
                                 )

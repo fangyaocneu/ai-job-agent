@@ -13,7 +13,7 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class RemoteOkSearchJobs {
+public class RemoteOkJobSource implements JobSource {
 
     private static final String API_URL =
             "https://remoteok.com/api?tag=dev";
@@ -22,13 +22,19 @@ public class RemoteOkSearchJobs {
     private final ObjectMapper objectMapper;
     private final JobRepository repository;
 
-    public RemoteOkSearchJobs() {
+    public RemoteOkJobSource() {
         this.httpClient = HttpClient.newHttpClient();
         this.objectMapper = new ObjectMapper();
         this.repository = new JobRepository();
     }
 
-    public List<Job> search() {
+    @Override
+    public String getName() {
+        return "RemoteOK";
+    }
+
+    @Override
+    public List<Job> fetchJobs() {
 
         List<Job> newJobs = new ArrayList<>();
 
@@ -66,16 +72,17 @@ public class RemoteOkSearchJobs {
                     );
 
             if (!root.isArray()) {
+
                 System.err.println(
                         "[RemoteOK] Unexpected API response."
                 );
+
                 return newJobs;
             }
 
             for (JsonNode node : root) {
 
-                // Remote OK includes a metadata object as
-                // the first element. Skip anything without an id.
+                // RemoteOK 第一個 object 是 metadata
                 if (!node.has("id")) {
                     continue;
                 }
@@ -97,8 +104,7 @@ public class RemoteOkSearchJobs {
 
                 String description =
                         cleanDescription(
-                                node.path("description")
-                                        .asText("")
+                                node.path("description").asText("")
                         );
 
                 LocalDateTime publishedAt =
@@ -130,7 +136,7 @@ public class RemoteOkSearchJobs {
         } catch (Exception e) {
 
             System.err.println(
-                    "[RemoteOK] Failed to search jobs."
+                    "[RemoteOK] Failed to fetch jobs."
             );
 
             e.printStackTrace();
