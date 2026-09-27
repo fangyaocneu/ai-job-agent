@@ -7,18 +7,14 @@ import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
 public class JobAnalysisAgent
-        implements Agent<AgentContext, AgentContext> {
+        implements Agent<AgentContext, AgentContext>, AutoCloseable {
 
     private final OpenAIClient client;
     private final ObjectMapper objectMapper;
 
     public JobAnalysisAgent() {
-
-        this.client =
-                OpenAIOkHttpClient.fromEnv();
-
-        this.objectMapper =
-                new ObjectMapper();
+        this.client = OpenAIOkHttpClient.fromEnv();
+        this.objectMapper = new ObjectMapper();
     }
 
     @Override
@@ -26,8 +22,7 @@ public class JobAnalysisAgent
             AgentContext context
     ) {
 
-        Job job =
-                context.getJob();
+        Job job = context.getJob();
 
         try {
 
@@ -38,8 +33,45 @@ public class JobAnalysisAgent
                             + job.getTitle()
             );
 
-            String prompt =
-                    buildPrompt(job);
+            String prompt = """
+                    Analyze this software engineering job posting.
+
+                    Return ONLY valid JSON using exactly this structure:
+
+                    {
+                      "roleType": "BACKEND | FRONTEND | FULL_STACK | DEVOPS | DATA | MOBILE | OTHER",
+                      "seniority": "ENTRY_LEVEL | MID_LEVEL | SENIOR | STAFF | UNKNOWN",
+                      "primarySkills": ["skill1", "skill2"],
+                      "secondarySkills": ["skill1", "skill2"],
+                      "requiredYearsExperience": 0,
+                      "summary": "short summary"
+                    }
+
+                    Job Title:
+                    %s
+
+                    Company:
+                    %s
+
+                    Location:
+                    %s
+
+                    Description:
+                    %s
+
+                    Rules:
+                    - Do not include markdown.
+                    - Return JSON only.
+                    - Use UNKNOWN if seniority is unclear.
+                    - Use 0 if required years of experience are not stated.
+                    - Keep the summary concise.
+                    """
+                    .formatted(
+                            job.getTitle(),
+                            job.getCompany(),
+                            job.getLocation(),
+                            job.getDescription()
+                    );
 
             ResponseCreateParams request =
                     ResponseCreateParams.builder()
@@ -53,10 +85,15 @@ public class JobAnalysisAgent
                     );
 
             String output =
-                    extractOutputText(response);
+                    extractOutputText(
+                            response
+                    );
 
             JobAnalysis analysis =
-                    parseAnalysis(output);
+                    objectMapper.readValue(
+                            output,
+                            JobAnalysis.class
+                    );
 
             context.setJobAnalysis(
                     analysis
@@ -90,15 +127,18 @@ public class JobAnalysisAgent
         response.output().stream()
                 .flatMap(
                         item ->
-                                item.message().stream()
+                                item.message()
+                                        .stream()
                 )
                 .flatMap(
                         message ->
-                                message.content().stream()
+                                message.content()
+                                        .stream()
                 )
                 .flatMap(
                         content ->
-                                content.outputText().stream()
+                                content.outputText()
+                                        .stream()
                 )
                 .forEach(
                         text ->
@@ -107,63 +147,19 @@ public class JobAnalysisAgent
                                 )
                 );
 
-        return output.toString();
+        if (output.isEmpty()) {
+
+            throw new IllegalStateException(
+                    "Could not find text in OpenAI response."
+            );
+        }
+
+        return output.toString()
+                .trim();
     }
 
-    private String buildPrompt(Job job) {
-
-        return """
-                Analyze the following software job posting.
-
-                Return ONLY valid JSON.
-
-                Required JSON format:
-
-                {
-                  "roleType": "BACKEND | FRONTEND | FULL_STACK | DEVOPS | DATA | MOBILE | OTHER",
-                  "seniority": "ENTRY_LEVEL | MID_LEVEL | SENIOR | STAFF | UNKNOWN",
-                  "primarySkills": ["skill1", "skill2"],
-                  "secondarySkills": ["skill1", "skill2"],
-                  "requiredYearsExperience": 0,
-                  "summary": "short summary"
-                }
-
-                Rules:
-                - primarySkills should contain core required technologies.
-                - secondarySkills should contain preferred or supporting technologies.
-                - requiredYearsExperience must be a number.
-                - If years of experience are not clearly stated, use 0.
-                - Do not include markdown.
-                - Do not include ```json.
-                - Return JSON only.
-
-                Job Title:
-                %s
-
-                Company:
-                %s
-
-                Location:
-                %s
-
-                Description:
-                %s
-                """
-                .formatted(
-                        job.getTitle(),
-                        job.getCompany(),
-                        job.getLocation(),
-                        job.getDescription()
-                );
-    }
-
-    private JobAnalysis parseAnalysis(
-            String output
-    ) throws Exception {
-
-        return objectMapper.readValue(
-                output,
-                JobAnalysis.class
-        );
+    @Override
+    public void close() {
+        client.close();
     }
 }

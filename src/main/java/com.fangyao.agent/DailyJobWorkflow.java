@@ -8,40 +8,29 @@ public class DailyJobWorkflow {
 
         System.out.println("===== Daily Job Search Started =====");
 
-        MatchAgent matchAgent = null;
-        StrategyAgent strategyAgent = null;
+        AgentCoordinator coordinator = null;
 
         try {
 
-            List<JobSource> jobSources =
-                    List.of(
-                            new RemotiveJobSource(),
-                            new RemoteOkJobSource()
-                    );
+            // ==========================
+            // Step 1: Job ingestion
+            // ==========================
+            List<JobSource> jobSources = List.of(
+                    new RemotiveJobSource(),
+                    new RemoteOkJobSource(),
+                    new GreenhouseJobSource(),
+                    new LeverJobSource()
+            );
 
             JobIngestionService ingestionService =
-                    new JobIngestionService(
-                            jobSources
-                    );
+                    new JobIngestionService(jobSources);
 
             JobRepository jobRepository =
                     new JobRepository();
 
-            PreFilterAgent preFilterAgent =
-                    new PreFilterAgent();
+            JobAgentResultRepository agentResultRepository =
+                    new JobAgentResultRepository();
 
-            JobAnalysisAgent jobAnalysisAgent =
-                    new JobAnalysisAgent();
-
-            matchAgent =
-                    new MatchAgent();
-
-            strategyAgent =
-                    new StrategyAgent();
-
-            // ==========================
-            // Step 1: Fetch jobs
-            // ==========================
             List<Job> newJobs =
                     ingestionService.fetchAllJobs();
 
@@ -51,7 +40,7 @@ public class DailyJobWorkflow {
             );
 
             // ==========================
-            // Step 2: Get unscored jobs
+            // Step 2: Get jobs to process
             // ==========================
             List<Job> unscoredJobs =
                     jobRepository.getUnscoredJobs();
@@ -62,99 +51,15 @@ public class DailyJobWorkflow {
             );
 
             // ==========================
-            // Step 3: Run agent chain
+            // Step 3: Agent pipeline
             // ==========================
+            coordinator =
+                    new AgentCoordinator();
+
             for (Job job : unscoredJobs) {
 
                 AgentContext context =
-                        new AgentContext(job);
-
-                // ==========================
-                // Agent 1: PreFilterAgent
-                // ==========================
-                context =
-                        preFilterAgent.execute(
-                                context
-                        );
-
-                if (!context.isRelevant()) {
-
-                    JobMatchResult filteredResult =
-                            new JobMatchResult(
-                                    0,
-                                    "Rejected by pre-filter.",
-                                    "Job title or seniority does not match target software engineering roles."
-                            );
-
-                    context.setMatchResult(
-                            filteredResult
-                    );
-
-                    boolean updated =
-                            jobRepository.updateMatchResult(
-                                    job.getId(),
-                                    filteredResult
-                            );
-
-                    if (updated) {
-
-                        System.out.println(
-                                "[PreFilterAgent] Marked job ID "
-                                        + job.getId()
-                                        + " as filtered."
-                        );
-
-                    } else {
-
-                        System.out.println(
-                                "[PreFilterAgent] Failed to update job ID: "
-                                        + job.getId()
-                        );
-                    }
-
-                    continue;
-                }
-
-                // ==========================
-                // Agent 2: JobAnalysisAgent
-                // ==========================
-                context =
-                        jobAnalysisAgent.execute(
-                                context
-                        );
-
-                if (context.getJobAnalysis() == null) {
-
-                    System.err.println(
-                            "[JobAnalysisAgent] No analysis result for job ID: "
-                                    + job.getId()
-                    );
-
-                    continue;
-                }
-
-                JobAnalysis analysis =
-                        context.getJobAnalysis();
-
-                System.out.println(
-                        "[JobAnalysisAgent] Role: "
-                                + analysis.getRoleType()
-                                + " | Seniority: "
-                                + analysis.getSeniority()
-                );
-
-                System.out.println(
-                        "[JobAnalysisAgent] Primary skills: "
-                                + analysis.getPrimarySkills()
-                );
-
-                // ==========================
-                // Agent 3: MatchAgent
-                // ==========================
-                context =
-                        matchAgent.execute(
-                                context
-                        );
+                        coordinator.process(job);
 
                 JobMatchResult matchResult =
                         context.getMatchResult();
@@ -162,13 +67,16 @@ public class DailyJobWorkflow {
                 if (matchResult == null) {
 
                     System.err.println(
-                            "[MatchAgent] No result for job ID: "
+                            "[DailyJobWorkflow] No match result for job ID: "
                                     + job.getId()
                     );
 
                     continue;
                 }
 
+                // ==========================
+                // Save legacy match result
+                // ==========================
                 boolean updated =
                         jobRepository.updateMatchResult(
                                 job.getId(),
@@ -178,46 +86,46 @@ public class DailyJobWorkflow {
                 if (updated) {
 
                     System.out.println(
-                            "[MatchAgent] Saved result for job ID: "
+                            "[DailyJobWorkflow] Saved match result for job ID: "
                                     + job.getId()
                     );
 
                 } else {
 
-                    System.out.println(
-                            "[MatchAgent] Failed to save result for job ID: "
+                    System.err.println(
+                            "[DailyJobWorkflow] Failed to save match result for job ID: "
                                     + job.getId()
                     );
                 }
 
                 // ==========================
-                // Agent 4: StrategyAgent
+                // Save structured agent result
                 // ==========================
-                MatchEvaluation evaluation =
-                        context.getMatchEvaluation();
+                agentResultRepository.saveOrUpdate(
+                        job.getId(),
+                        context.getJobAnalysis(),
+                        context.getMatchEvaluation(),
+                        context.getStrategy()
+                );
 
-                if (evaluation != null
-                        && evaluation.getOverallScore() >= 60) {
+                // ==========================
+                // Strategy logging
+                // ==========================
+                ApplicationStrategy strategy =
+                        context.getStrategy();
 
-                    context =
-                            strategyAgent.execute(
-                                    context
-                            );
+                if (strategy != null) {
 
-                    if (context.getStrategy() == null) {
-
-                        System.err.println(
-                                "[StrategyAgent] No strategy result for job ID: "
-                                        + job.getId()
-                        );
-                    }
+                    System.out.println(
+                            "[DailyJobWorkflow] Strategy available for job ID: "
+                                    + job.getId()
+                    );
 
                 } else {
 
                     System.out.println(
-                            "[StrategyAgent] Skipped job ID: "
+                            "[DailyJobWorkflow] No strategy generated for job ID: "
                                     + job.getId()
-                                    + " because match score is below threshold."
                     );
                 }
             }
@@ -226,14 +134,10 @@ public class DailyJobWorkflow {
             // Step 4: Email credentials
             // ==========================
             String email =
-                    System.getenv(
-                            "EMAIL_ADDRESS"
-                    );
+                    System.getenv("EMAIL_ADDRESS");
 
             String appPassword =
-                    System.getenv(
-                            "EMAIL_APP_PASSWORD"
-                    );
+                    System.getenv("EMAIL_APP_PASSWORD");
 
             if (email == null
                     || email.isBlank()) {
@@ -256,7 +160,7 @@ public class DailyJobWorkflow {
             }
 
             // ==========================
-            // Step 5: Shared email service
+            // Step 5: Email service
             // ==========================
             EmailService emailService =
                     new EmailService(
@@ -276,12 +180,10 @@ public class DailyJobWorkflow {
                             emailService
                     );
 
-            emailWorkflow.run(
-                    email
-            );
+            emailWorkflow.run(email);
 
             // ==========================
-            // Step 7: Follow-up reminder
+            // Step 7: Follow-up reminders
             // ==========================
             FollowUpReminderService followUpReminderService =
                     new FollowUpReminderService();
@@ -292,9 +194,7 @@ public class DailyJobWorkflow {
                             emailService
                     );
 
-            followUpReminderWorkflow.run(
-                    email
-            );
+            followUpReminderWorkflow.run(email);
 
         } catch (Exception e) {
 
@@ -306,14 +206,8 @@ public class DailyJobWorkflow {
 
         } finally {
 
-            if (strategyAgent != null) {
-
-                strategyAgent.close();
-            }
-
-            if (matchAgent != null) {
-
-                matchAgent.close();
+            if (coordinator != null) {
+                coordinator.close();
             }
 
             System.out.println(

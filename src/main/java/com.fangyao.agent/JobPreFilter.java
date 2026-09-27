@@ -36,40 +36,201 @@ public class JobPreFilter {
             "analyst"
     );
 
+    // Senior is intentionally allowed.
+    // Only Staff / Principal / Lead / Manager / Director+ are rejected.
     private static final List<String> SENIORITY_EXCLUDES = List.of(
-            "senior",
-            "sr.",
-            "staff",
+            "senior staff",
+            "staff engineer",
+            "staff software",
+            "staff backend",
+            "staff fullstack",
+            "staff full stack",
             "principal",
-            "lead",
-            "manager",
+            "lead engineer",
+            "tech lead",
+            "technical lead",
+            "engineering manager",
+            "manager, engineering",
+            "software architect",
+            "solutions architect",
             "director",
-            "architect",
-            "vp",
-            "vice president"
+            "vice president",
+            "vp "
+    );
+
+    private static final List<String> NORTH_AMERICA_KEYWORDS = List.of(
+            "united states",
+            "usa",
+            "u.s.",
+            "us ",
+            "u.s.a",
+            "canada",
+            "mexico",
+            "north america"
+    );
+
+    private static final List<String> US_STATE_KEYWORDS = List.of(
+            "california",
+            "new york",
+            "texas",
+            "washington",
+            "massachusetts",
+            "illinois",
+            "florida",
+            "georgia",
+            "virginia",
+            "maryland",
+            "colorado",
+            "oregon",
+            "arizona",
+            "north carolina",
+            "south carolina",
+            "pennsylvania",
+            "new jersey",
+            "connecticut",
+            "ohio",
+            "michigan",
+            "minnesota",
+            "tennessee",
+            "utah"
+    );
+
+    private static final List<String> NON_NORTH_AMERICA_KEYWORDS = List.of(
+            "brazil",
+            "india",
+            "singapore",
+            "japan",
+            "china",
+            "taiwan",
+            "hong kong",
+            "korea",
+            "south korea",
+            "australia",
+            "new zealand",
+            "united kingdom",
+            "uk",
+            "london",
+            "ireland",
+            "germany",
+            "france",
+            "spain",
+            "italy",
+            "netherlands",
+            "sweden",
+            "poland",
+            "romania",
+            "portugal",
+            "europe",
+            "emea",
+            "apac",
+            "asia"
     );
 
     public boolean shouldScore(Job job) {
 
-        String title = normalize(job.getTitle());
+        String title =
+                normalize(job.getTitle());
 
-        // 1. Remove clearly irrelevant roles
+        String location =
+                normalize(job.getLocation());
+
+        // ==========================
+        // 1. Remove irrelevant roles
+        // ==========================
         for (String excluded : EXCLUDE_KEYWORDS) {
+
             if (title.contains(excluded)) {
                 return false;
             }
         }
 
-        // 2. Remove roles that are too senior
+        // ==========================
+        // 2. Remove Staff+ roles
+        // ==========================
         for (String senior : SENIORITY_EXCLUDES) {
+
             if (title.contains(senior)) {
                 return false;
             }
         }
 
-        // 3. Only use the title to decide whether the role is relevant
+        // ==========================
+        // 3. Check relevant SWE role
+        // ==========================
+        boolean relevantRole =
+                false;
+
         for (String relevant : RELEVANT_KEYWORDS) {
+
             if (title.contains(relevant)) {
+
+                relevantRole =
+                        true;
+
+                break;
+            }
+        }
+
+        if (!relevantRole) {
+            return false;
+        }
+
+        // ==========================
+        // 4. North America location
+        // ==========================
+        if (!isNorthAmericaLocation(location)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isNorthAmericaLocation(
+            String location
+    ) {
+
+        // Some job sources may not provide location.
+        // Do not reject missing location yet.
+        if (location == null
+                || location.isBlank()) {
+
+            return true;
+        }
+
+        // Explicitly reject known non-North-America locations.
+        for (String excluded : NON_NORTH_AMERICA_KEYWORDS) {
+
+            if (location.contains(excluded)) {
+                return false;
+            }
+        }
+
+        // Generic remote roles are allowed because
+        // some providers omit the exact region.
+        if (location.equals("remote")
+                || location.contains("remote - us")
+                || location.contains("remote us")
+                || location.contains("remote, us")
+                || location.contains("remote - canada")
+                || location.contains("remote canada")
+                || location.contains("remote - north america")
+                || location.contains("remote north america")) {
+
+            return true;
+        }
+
+        // Explicit North America location.
+        for (String allowed : NORTH_AMERICA_KEYWORDS) {
+
+            if (location.contains(allowed)) {
+                return true;
+            }
+        }
+
+        // Common US states.
+        for (String state : US_STATE_KEYWORDS) {
+
+            if (location.contains(state)) {
                 return true;
             }
         }
@@ -77,12 +238,16 @@ public class JobPreFilter {
         return false;
     }
 
-    private String normalize(String text) {
+    private String normalize(
+            String text
+    ) {
 
         if (text == null) {
             return "";
         }
 
-        return text.toLowerCase().trim();
+        return text
+                .toLowerCase()
+                .trim();
     }
 }
