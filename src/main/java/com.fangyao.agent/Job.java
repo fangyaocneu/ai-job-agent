@@ -1,6 +1,7 @@
 package com.fangyao.agent;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class Job {
 
@@ -19,6 +20,10 @@ public class Job {
     private boolean favorite;
     private boolean applied;
     private boolean ignored;
+    private String applicationStage;
+    private String notes;
+    private LocalDate appliedAt;
+    private LocalDate followUpDate;
 
     public Integer getMatchScore() {
         return matchScore;
@@ -120,5 +125,37 @@ public class Job {
 
     public void setIgnored(boolean ignored) {
         this.ignored = ignored;
+    }
+
+    public String getApplicationStage() {
+        return applicationStage;
+    }
+
+    public void setApplicationStage(String applicationStage) {
+        this.applicationStage = applicationStage;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public LocalDate getAppliedAt() {
+        return appliedAt;
+    }
+
+    public void setAppliedAt(LocalDate appliedAt) {
+        this.appliedAt = appliedAt;
+    }
+
+    public LocalDate getFollowUpDate() {
+        return followUpDate;
+    }
+
+    public void setFollowUpDate(LocalDate followUpDate) {
+        this.followUpDate = followUpDate;
     }
 }

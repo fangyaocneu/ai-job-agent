@@ -5,9 +5,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+import java.time.LocalDate;
 
 public class JobRepository {
 
@@ -18,19 +19,26 @@ public class JobRepository {
             case "favorite":
                 column = "favorite";
                 break;
+
             case "applied":
                 column = "applied";
                 break;
+
             case "ignored":
                 column = "ignored";
                 break;
+
             default:
                 return false;
         }
 
-        String sql = "UPDATE jobs SET " + column + " = ? WHERE id = ?";
+        String sql
+                = "UPDATE jobs SET " + column + " = ? WHERE id = ?";
 
-        try (Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
 
             statement.setBoolean(1, value);
             statement.setInt(2, id);
@@ -38,7 +46,57 @@ public class JobRepository {
             return statement.executeUpdate() > 0;
 
         } catch (SQLException e) {
-            System.err.println("[Database Error] Failed to update job status: " + e.getMessage());
+            System.err.println(
+                    "[Database Error] Failed to update job status: "
+                    + e.getMessage()
+            );
+
+            return false;
+        }
+    }
+
+    /*
+     * Phase 4
+     * Update application tracking information.
+     */
+    public boolean updateApplicationDetails(
+            int id,
+            String applicationStage,
+            String notes,
+            LocalDate appliedAt,
+            LocalDate followUpDate
+    ) {
+
+        String sql = """
+                UPDATE jobs
+                SET
+                    application_stage = ?,
+                    notes = ?,
+                    applied_at = ?,
+                    follow_up_date = ?
+                WHERE id = ?
+                """;
+
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
+
+            statement.setString(1, applicationStage);
+            statement.setString(2, notes);
+            statement.setObject(3, appliedAt);
+            statement.setObject(4, followUpDate);
+            statement.setInt(5, id);
+
+            return statement.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+
+            System.err.println(
+                    "[Database Error] Failed to update application details: "
+                    + e.getMessage()
+            );
+
             return false;
         }
     }
@@ -48,16 +106,25 @@ public class JobRepository {
         Map<String, Object> stats = new HashMap<>();
 
         String sql = """
-            SELECT
-                COUNT(*) AS total_jobs,
-                COUNT(*) FILTER (WHERE match_score >= 70) AS high_match_jobs,
-                COUNT(*) FILTER (WHERE match_score IS NULL) AS unscored_jobs,
-                AVG(match_score) FILTER (WHERE match_score IS NOT NULL) AS average_score
-            FROM jobs
-            """;
+                SELECT
+                    COUNT(*) AS total_jobs,
+                    COUNT(*) FILTER (
+                        WHERE match_score >= 70
+                    ) AS high_match_jobs,
+                    COUNT(*) FILTER (
+                        WHERE match_score IS NULL
+                    ) AS unscored_jobs,
+                    AVG(match_score) FILTER (
+                        WHERE match_score IS NOT NULL
+                    ) AS average_score
+                FROM jobs
+                """;
 
         try (
-                Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement = connection.prepareStatement(sql); ResultSet resultSet = statement.executeQuery()) {
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql); ResultSet resultSet
+                = statement.executeQuery()) {
 
             if (resultSet.next()) {
 
@@ -80,11 +147,19 @@ public class JobRepository {
                         = resultSet.getDouble("average_score");
 
                 if (resultSet.wasNull()) {
-                    stats.put("averageScore", 0);
-                } else {
+
                     stats.put(
                             "averageScore",
-                            Math.round(averageScore * 10.0) / 10.0
+                            0
+                    );
+
+                } else {
+
+                    stats.put(
+                            "averageScore",
+                            Math.round(
+                                    averageScore * 10.0
+                            ) / 10.0
                     );
                 }
             }
@@ -105,61 +180,38 @@ public class JobRepository {
         List<Job> jobs = new ArrayList<>();
 
         String sql = """
-            SELECT
-                id,
-                external_id,
-                title,
-                company,
-                location,
-                url,
-                published_at,
-                description,
-                match_score,
-                match_reason,
-                match_gap,
-                favorite,
-                applied,
-                ignored
-
-            FROM jobs
-            ORDER BY first_seen_at DESC
-            """;
+                SELECT
+                    id,
+                    external_id,
+                    title,
+                    company,
+                    location,
+                    url,
+                    published_at,
+                    description,
+                    match_score,
+                    match_reason,
+                    match_gap,
+                    favorite,
+                    applied,
+                    ignored,
+                    application_stage,
+                    notes,
+                    applied_at,
+                    follow_up_date
+                FROM jobs
+                ORDER BY first_seen_at DESC
+                """;
 
         try (
-                Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement = connection.prepareStatement(sql); ResultSet resultSet = statement.executeQuery()) {
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql); ResultSet resultSet
+                = statement.executeQuery()) {
 
             while (resultSet.next()) {
 
-                Job job = new Job(
-                        resultSet.getString("external_id"),
-                        resultSet.getString("title"),
-                        resultSet.getString("company"),
-                        resultSet.getString("location"),
-                        resultSet.getString("url"),
-                        resultSet.getTimestamp("published_at") != null
-                        ? resultSet.getTimestamp("published_at").toLocalDateTime()
-                        : null,
-                        resultSet.getString("description")
-                );
-
-                job.setFavorite(resultSet.getBoolean("favorite"));
-                job.setApplied(resultSet.getBoolean("applied"));
-                job.setIgnored(resultSet.getBoolean("ignored"));
-
-                job.setId(resultSet.getInt("id"));
-
-                int score = resultSet.getInt("match_score");
-                if (!resultSet.wasNull()) {
-                    job.setMatchScore(score);
-                }
-
-                job.setMatchReason(
-                        resultSet.getString("match_reason")
-                );
-
-                job.setMatchGap(
-                        resultSet.getString("match_gap")
-                );
+                Job job = mapJob(resultSet);
 
                 jobs.add(job);
             }
@@ -180,51 +232,41 @@ public class JobRepository {
         List<Job> jobs = new ArrayList<>();
 
         String sql = """
-            SELECT
-                id,
-                external_id,
-                title,
-                company,
-                location,
-                url,
-                published_at,
-                description,
-                match_score,
-                match_reason,
-                match_gap,
-                favorite,
-                applied,
-                ignored
-
-            FROM jobs
-            WHERE match_score >= 70
-            ORDER BY match_score DESC, first_seen_at DESC
-            """;
+                SELECT
+                    id,
+                    external_id,
+                    title,
+                    company,
+                    location,
+                    url,
+                    published_at,
+                    description,
+                    match_score,
+                    match_reason,
+                    match_gap,
+                    favorite,
+                    applied,
+                    ignored,
+                    application_stage,
+                    notes,
+                    applied_at,
+                    follow_up_date
+                FROM jobs
+                WHERE match_score >= 70
+                ORDER BY
+                    match_score DESC,
+                    first_seen_at DESC
+                """;
 
         try (
-                Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement = connection.prepareStatement(sql); ResultSet resultSet = statement.executeQuery()) {
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql); ResultSet resultSet
+                = statement.executeQuery()) {
 
             while (resultSet.next()) {
 
-                Job job = new Job(
-                        resultSet.getString("external_id"),
-                        resultSet.getString("title"),
-                        resultSet.getString("company"),
-                        resultSet.getString("location"),
-                        resultSet.getString("url"),
-                        resultSet.getTimestamp("published_at") != null
-                        ? resultSet.getTimestamp("published_at").toLocalDateTime()
-                        : null,
-                        resultSet.getString("description")
-                );
-
-                job.setId(resultSet.getInt("id"));
-                job.setMatchScore(resultSet.getInt("match_score"));
-                job.setMatchReason(resultSet.getString("match_reason"));
-                job.setMatchGap(resultSet.getString("match_gap"));
-                job.setFavorite(resultSet.getBoolean("favorite"));
-                job.setApplied(resultSet.getBoolean("applied"));
-                job.setIgnored(resultSet.getBoolean("ignored"));
+                Job job = mapJob(resultSet);
 
                 jobs.add(job);
             }
@@ -240,7 +282,9 @@ public class JobRepository {
         return jobs;
     }
 
-    public Job getJobById(int id) {
+    public List<Job> getFollowUpsDue() {
+
+        List<Job> jobs = new ArrayList<>();
 
         String sql = """
             SELECT
@@ -257,51 +301,85 @@ public class JobRepository {
                 match_gap,
                 favorite,
                 applied,
-                ignored
-
+                ignored,
+                application_stage,
+                notes,
+                applied_at,
+                follow_up_date
             FROM jobs
-            WHERE id = ?
+            WHERE follow_up_date IS NOT NULL
+              AND follow_up_date <= CURRENT_DATE
+              AND application_stage NOT IN (
+                  'NOT_APPLIED',
+                  'OFFER',
+                  'REJECTED'
+              )
+            ORDER BY follow_up_date ASC
             """;
 
         try (
-                Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+                Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql); ResultSet resultSet
+                = statement.executeQuery()) {
+
+            while (resultSet.next()) {
+                jobs.add(mapJob(resultSet));
+            }
+
+        } catch (SQLException e) {
+            System.err.println(
+                    "[Database Error] Failed to load follow-ups due: "
+                    + e.getMessage()
+            );
+        }
+
+        return jobs;
+    }
+
+    public Job getJobById(int id) {
+
+        String sql = """
+                SELECT
+                    id,
+                    external_id,
+                    title,
+                    company,
+                    location,
+                    url,
+                    published_at,
+                    description,
+                    match_score,
+                    match_reason,
+                    match_gap,
+                    favorite,
+                    applied,
+                    ignored,
+                    application_stage,
+                    notes,
+                    applied_at,
+                    follow_up_date
+                FROM jobs
+                WHERE id = ?
+                """;
+
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
 
-            try (ResultSet resultSet = statement.executeQuery()) {
+            try (
+                    ResultSet resultSet
+                    = statement.executeQuery()) {
 
                 if (resultSet.next()) {
-
-                    Job job = new Job(
-                            resultSet.getString("external_id"),
-                            resultSet.getString("title"),
-                            resultSet.getString("company"),
-                            resultSet.getString("location"),
-                            resultSet.getString("url"),
-                            resultSet.getTimestamp("published_at") != null
-                            ? resultSet.getTimestamp("published_at").toLocalDateTime()
-                            : null,
-                            resultSet.getString("description")
-                    );
-
-                    job.setId(resultSet.getInt("id"));
-
-                    int score = resultSet.getInt("match_score");
-                    if (!resultSet.wasNull()) {
-                        job.setMatchScore(score);
-                    }
-
-                    job.setMatchReason(resultSet.getString("match_reason"));
-                    job.setMatchGap(resultSet.getString("match_gap"));
-                    job.setFavorite(resultSet.getBoolean("favorite"));
-                    job.setApplied(resultSet.getBoolean("applied"));
-                    job.setIgnored(resultSet.getBoolean("ignored"));
-
-                    return job;
+                    return mapJob(resultSet);
                 }
             }
 
         } catch (SQLException e) {
+
             System.out.println(
                     "[Database Error] Failed to load job by id: "
                     + e.getMessage()
@@ -313,8 +391,7 @@ public class JobRepository {
 
     public boolean save(Job job) {
 
-        String sql
-                = """
+        String sql = """
                 INSERT INTO jobs (
                     external_id,
                     title,
@@ -325,7 +402,8 @@ public class JobRepository {
                     description
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (external_id) DO NOTHING
+                ON CONFLICT (external_id)
+                DO NOTHING
                 RETURNING id
                 """;
 
@@ -334,18 +412,40 @@ public class JobRepository {
                 = DatabaseConfig.getConnection(); PreparedStatement statement
                 = connection.prepareStatement(sql)) {
 
-            statement.setString(1, job.getExternalId());
-            statement.setString(2, job.getTitle());
-            statement.setString(3, job.getCompany());
-            statement.setString(4, job.getLocation());
-            statement.setString(5, job.getUrl());
+            statement.setString(
+                    1,
+                    job.getExternalId()
+            );
+
+            statement.setString(
+                    2,
+                    job.getTitle()
+            );
+
+            statement.setString(
+                    3,
+                    job.getCompany()
+            );
+
+            statement.setString(
+                    4,
+                    job.getLocation()
+            );
+
+            statement.setString(
+                    5,
+                    job.getUrl()
+            );
 
             if (job.getPublishedAt() != null) {
+
                 statement.setObject(
                         6,
                         job.getPublishedAt()
                 );
+
             } else {
+
                 statement.setObject(
                         6,
                         null
@@ -390,8 +490,7 @@ public class JobRepository {
             JobMatchResult result
     ) {
 
-        String sql
-                = """
+        String sql = """
                 UPDATE jobs
                 SET
                     match_score = ?,
@@ -446,50 +545,198 @@ public class JobRepository {
         List<Job> jobs = new ArrayList<>();
 
         String sql = """
-            SELECT
-                id,
-                external_id,
-                title,
-                company,
-                location,
-                url,
-                published_at,
-                description,
-                match_score,
-                match_reason,
-                match_gap
-            FROM jobs
-            WHERE match_score IS NULL
-            ORDER BY first_seen_at ASC
-            LIMIT 20
-            """;
+                SELECT
+                    id,
+                    external_id,
+                    title,
+                    company,
+                    location,
+                    url,
+                    published_at,
+                    description,
+                    match_score,
+                    match_reason,
+                    match_gap
+                FROM jobs
+                WHERE match_score IS NULL
+                ORDER BY first_seen_at ASC
+                LIMIT 20
+                """;
 
-        try (Connection connection = DatabaseConfig.getConnection(); PreparedStatement statement = connection.prepareStatement(sql); ResultSet resultSet = statement.executeQuery()) {
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql); ResultSet resultSet
+                = statement.executeQuery()) {
 
             while (resultSet.next()) {
 
                 Job job = new Job(
-                        resultSet.getString("external_id"),
-                        resultSet.getString("title"),
-                        resultSet.getString("company"),
-                        resultSet.getString("location"),
-                        resultSet.getString("url"),
-                        resultSet.getTimestamp("published_at") != null
-                        ? resultSet.getTimestamp("published_at").toLocalDateTime()
+                        resultSet.getString(
+                                "external_id"
+                        ),
+                        resultSet.getString(
+                                "title"
+                        ),
+                        resultSet.getString(
+                                "company"
+                        ),
+                        resultSet.getString(
+                                "location"
+                        ),
+                        resultSet.getString(
+                                "url"
+                        ),
+                        resultSet.getTimestamp(
+                                "published_at"
+                        ) != null
+                        ? resultSet
+                                .getTimestamp(
+                                        "published_at"
+                                )
+                                .toLocalDateTime()
                         : null,
-                        resultSet.getString("description")
+                        resultSet.getString(
+                                "description"
+                        )
                 );
 
-                job.setId(resultSet.getInt("id"));
+                job.setId(
+                        resultSet.getInt("id")
+                );
 
                 jobs.add(job);
             }
 
         } catch (SQLException e) {
-            System.err.println("[Database Error] Failed to load unscored jobs.");
+
+            System.err.println(
+                    "[Database Error] Failed to load unscored jobs."
+            );
+
             e.printStackTrace();
         }
 
         return jobs;
+    }
+
+    /*
+     * Convert database row into Job object.
+     */
+    private Job mapJob(ResultSet resultSet)
+            throws SQLException {
+
+        Job job = new Job(
+                resultSet.getString(
+                        "external_id"
+                ),
+                resultSet.getString(
+                        "title"
+                ),
+                resultSet.getString(
+                        "company"
+                ),
+                resultSet.getString(
+                        "location"
+                ),
+                resultSet.getString(
+                        "url"
+                ),
+                resultSet.getTimestamp(
+                        "published_at"
+                ) != null
+                ? resultSet
+                        .getTimestamp(
+                                "published_at"
+                        )
+                        .toLocalDateTime()
+                : null,
+                resultSet.getString(
+                        "description"
+                )
+        );
+
+        job.setId(
+                resultSet.getInt("id")
+        );
+
+        int score
+                = resultSet.getInt(
+                        "match_score"
+                );
+
+        if (!resultSet.wasNull()) {
+            job.setMatchScore(score);
+        }
+
+        job.setMatchReason(
+                resultSet.getString(
+                        "match_reason"
+                )
+        );
+
+        job.setMatchGap(
+                resultSet.getString(
+                        "match_gap"
+                )
+        );
+
+        job.setFavorite(
+                resultSet.getBoolean(
+                        "favorite"
+                )
+        );
+
+        job.setApplied(
+                resultSet.getBoolean(
+                        "applied"
+                )
+        );
+
+        job.setIgnored(
+                resultSet.getBoolean(
+                        "ignored"
+                )
+        );
+
+        job.setApplicationStage(
+                resultSet.getString(
+                        "application_stage"
+                )
+        );
+
+        job.setNotes(
+                resultSet.getString(
+                        "notes"
+                )
+        );
+
+        if (resultSet.getDate(
+                "applied_at"
+        ) != null) {
+
+            job.setAppliedAt(
+                    resultSet
+                            .getDate(
+                                    "applied_at"
+                            )
+                            .toLocalDate()
+            );
+        }
+
+        if (resultSet.getDate(
+                "follow_up_date"
+        ) != null) {
+
+            job.setFollowUpDate(
+                    resultSet
+                            .getDate(
+                                    "follow_up_date"
+                            )
+                            .toLocalDate()
+            );
+        }
+
+        return job;
     }
 }

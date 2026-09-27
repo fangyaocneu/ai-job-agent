@@ -199,15 +199,16 @@ public class DailyJobRunner {
                 return;
             }
 
-            // Step 5: Send high-match unsent jobs by email
-            SentJobRepository sentJobRepository =
-                    new SentJobRepository();
-
+            // Step 5: Create shared email service
             EmailService emailService =
                     new EmailService(
                             email,
                             appPassword
                     );
+
+            // Step 6: Send high-match unsent jobs by email
+            SentJobRepository sentJobRepository =
+                    new SentJobRepository();
 
             JobEmailWorkflow emailWorkflow =
                     new JobEmailWorkflow(
@@ -216,6 +217,18 @@ public class DailyJobRunner {
                     );
 
             emailWorkflow.run(email);
+
+            // Step 7: Send application follow-up reminder
+            FollowUpReminderService followUpReminderService =
+                    new FollowUpReminderService();
+
+            FollowUpReminderWorkflow followUpReminderWorkflow =
+                    new FollowUpReminderWorkflow(
+                            followUpReminderService,
+                            emailService
+                    );
+
+            followUpReminderWorkflow.run(email);
 
         } catch (Exception e) {
 
