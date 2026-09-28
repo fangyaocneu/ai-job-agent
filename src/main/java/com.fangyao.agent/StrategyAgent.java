@@ -2,22 +2,23 @@ package com.fangyao.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
 public class StrategyAgent
-        implements Agent<AgentContext, AgentContext>, AutoCloseable {
+        implements Agent<AgentContext, AgentContext> {
 
     private final OpenAIClient client;
     private final ObjectMapper objectMapper;
     private final CandidateProfile profile;
 
-    public StrategyAgent() {
+    public StrategyAgent(
+            OpenAIClient client
+    ) {
 
         this.client =
-                OpenAIOkHttpClient.fromEnv();
+                client;
 
         this.objectMapper =
                 new ObjectMapper();
@@ -42,22 +43,20 @@ public class StrategyAgent
 
         if (evaluation == null) {
 
-            System.err.println(
-                    "[StrategyAgent] Missing match evaluation for job ID: "
+            throw new IllegalStateException(
+                    "StrategyAgent received no match evaluation for job ID: "
                             + job.getId()
             );
-
-            return context;
         }
 
-        try {
+        System.out.println(
+                "[StrategyAgent] Building strategy for job ID: "
+                        + job.getId()
+                        + " | "
+                        + job.getTitle()
+        );
 
-            System.out.println(
-                    "[StrategyAgent] Building strategy for job ID: "
-                            + job.getId()
-                            + " | "
-                            + job.getTitle()
-            );
+        try {
 
             String prompt =
                     buildPrompt(
@@ -68,14 +67,19 @@ public class StrategyAgent
 
             ResponseCreateParams request =
                     ResponseCreateParams.builder()
-                            .model(ChatModel.GPT_5_2)
-                            .input(prompt)
+                            .model(
+                                    ChatModel.GPT_5_2
+                            )
+                            .input(
+                                    prompt
+                            )
                             .build();
 
             Response response =
-                    client.responses().create(
-                            request
-                    );
+                    client.responses()
+                            .create(
+                                    request
+                            );
 
             String output =
                     extractOutputText(
@@ -102,17 +106,16 @@ public class StrategyAgent
                             + job.getId()
             );
 
+            return context;
+
         } catch (Exception e) {
 
-            System.err.println(
-                    "[StrategyAgent] Failed job ID: "
-                            + job.getId()
+            throw new RuntimeException(
+                    "StrategyAgent failed for job ID: "
+                            + job.getId(),
+                    e
             );
-
-            e.printStackTrace();
         }
-
-        return context;
     }
 
     private String buildPrompt(
@@ -256,7 +259,8 @@ public class StrategyAgent
         StringBuilder output =
                 new StringBuilder();
 
-        response.output().stream()
+        response.output()
+                .stream()
                 .flatMap(
                         item ->
                                 item.message()
@@ -338,11 +342,5 @@ public class StrategyAgent
         );
 
         System.out.println();
-    }
-
-    @Override
-    public void close() {
-
-        client.close();
     }
 }

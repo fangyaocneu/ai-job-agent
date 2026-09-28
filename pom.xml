@@ -68,6 +68,7 @@
 
         <plugins>
 
+            <!-- Spring Boot -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -76,6 +77,17 @@
                     <mainClass>
                         com.fangyao.agent.AiJobAgentApplication
                     </mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- Run standalone Java workflows such as DailyJobRunner -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.4</version>
+
+                <configuration>
+                    <cleanupDaemonThreads>false</cleanupDaemonThreads>
                 </configuration>
             </plugin>
 

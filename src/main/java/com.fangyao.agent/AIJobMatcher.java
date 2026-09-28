@@ -2,7 +2,6 @@ package com.fangyao.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
@@ -13,10 +12,12 @@ public class AIJobMatcher {
     private final CandidateProfile profile;
     private final ObjectMapper objectMapper;
 
-    public AIJobMatcher() {
+    public AIJobMatcher(
+            OpenAIClient client
+    ) {
 
         this.client =
-                OpenAIOkHttpClient.fromEnv();
+                client;
 
         this.profile =
                 new CandidateProfile();
@@ -25,8 +26,13 @@ public class AIJobMatcher {
                 new ObjectMapper();
     }
 
+    // ==========================
     // Backward-compatible
-    public JobMatchResult scoreJob(Job job) {
+    // ==========================
+
+    public JobMatchResult scoreJob(
+            Job job
+    ) {
 
         MatchEvaluation evaluation =
                 evaluateJob(
@@ -37,7 +43,10 @@ public class AIJobMatcher {
         return evaluation.toJobMatchResult();
     }
 
-    // Backward-compatible with structured analysis
+    // ==========================
+    // Structured analysis support
+    // ==========================
+
     public JobMatchResult scoreJob(
             Job job,
             JobAnalysis analysis
@@ -52,7 +61,10 @@ public class AIJobMatcher {
         return evaluation.toJobMatchResult();
     }
 
+    // ==========================
     // Phase 5 structured scoring
+    // ==========================
+
     public MatchEvaluation evaluateJob(
             Job job,
             JobAnalysis analysis
@@ -96,7 +108,6 @@ public class AIJobMatcher {
                 Projects:
                 %s
 
-
                 Job Information:
 
                 Title:
@@ -108,16 +119,13 @@ public class AIJobMatcher {
                 Location:
                 %s
 
-
                 Structured Job Analysis:
 
                 %s
 
-
                 Original Job Description:
 
                 %s
-
 
                 Evaluate the candidate against this role.
 
@@ -196,14 +204,19 @@ public class AIJobMatcher {
 
         ResponseCreateParams params =
                 ResponseCreateParams.builder()
-                        .model(ChatModel.GPT_5_2)
-                        .input(prompt)
+                        .model(
+                                ChatModel.GPT_5_2
+                        )
+                        .input(
+                                prompt
+                        )
                         .build();
 
         Response response =
-                client.responses().create(
-                        params
-                );
+                client.responses()
+                        .create(
+                                params
+                        );
 
         String output =
                 extractOutputText(
@@ -261,7 +274,8 @@ public class AIJobMatcher {
         StringBuilder output =
                 new StringBuilder();
 
-        response.output().stream()
+        response.output()
+                .stream()
                 .flatMap(
                         item ->
                                 item.message()
@@ -395,10 +409,5 @@ public class AIJobMatcher {
         );
 
         System.out.println();
-    }
-
-    public void close() {
-
-        client.close();
     }
 }

@@ -1,10 +1,14 @@
 package com.fangyao.agent;
 
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+
 public class AgentCoordinator implements AutoCloseable {
 
     private static final int STRATEGY_THRESHOLD = 60;
-
     private static final int MAX_ATTEMPTS = 2;
+
+    private final OpenAIClient openAIClient;
 
     private final PreFilterAgent preFilterAgent;
     private final JobAnalysisAgent jobAnalysisAgent;
@@ -15,17 +19,30 @@ public class AgentCoordinator implements AutoCloseable {
 
     public AgentCoordinator() {
 
+        // ==========================
+        // Shared OpenAI client
+        // ==========================
+
+        this.openAIClient =
+                OpenAIOkHttpClient.fromEnv();
+
         this.preFilterAgent =
                 new PreFilterAgent();
 
         this.jobAnalysisAgent =
-                new JobAnalysisAgent();
+                new JobAnalysisAgent(
+                        openAIClient
+                );
 
         this.matchAgent =
-                new MatchAgent();
+                new MatchAgent(
+                        openAIClient
+                );
 
         this.strategyAgent =
-                new StrategyAgent();
+                new StrategyAgent(
+                        openAIClient
+                );
 
         this.agentRunRepository =
                 new AgentRunRepository();
@@ -34,6 +51,7 @@ public class AgentCoordinator implements AutoCloseable {
     public AgentContext process(Job job) {
 
         System.out.println();
+
         System.out.println(
                 "===== AGENT PIPELINE START ====="
         );
@@ -51,6 +69,7 @@ public class AgentCoordinator implements AutoCloseable {
         // ==========================
         // Agent 1: PreFilterAgent
         // ==========================
+
         context =
                 executeAgentWithRetry(
                         "PreFilterAgent",
@@ -76,7 +95,7 @@ public class AgentCoordinator implements AutoCloseable {
                     new JobMatchResult(
                             0,
                             "Rejected by pre-filter.",
-                            "Job title or seniority does not match target software engineering roles."
+                            "Job title, seniority, or location does not match target software engineering roles."
                     );
 
             context.setMatchResult(
@@ -95,6 +114,7 @@ public class AgentCoordinator implements AutoCloseable {
         // ==========================
         // Agent 2: JobAnalysisAgent
         // ==========================
+
         context =
                 executeAgentWithRetry(
                         "JobAnalysisAgent",
@@ -103,8 +123,10 @@ public class AgentCoordinator implements AutoCloseable {
                         jobAnalysisAgent
                 );
 
-        if (context == null
-                || context.getJobAnalysis() == null) {
+        if (
+                context == null
+                        || context.getJobAnalysis() == null
+        ) {
 
             System.err.println(
                     "[AgentCoordinator] JobAnalysisAgent failed after retries."
@@ -120,6 +142,7 @@ public class AgentCoordinator implements AutoCloseable {
         // ==========================
         // Agent 3: MatchAgent
         // ==========================
+
         context =
                 executeAgentWithRetry(
                         "MatchAgent",
@@ -128,9 +151,11 @@ public class AgentCoordinator implements AutoCloseable {
                         matchAgent
                 );
 
-        if (context == null
-                || context.getMatchEvaluation() == null
-                || context.getMatchResult() == null) {
+        if (
+                context == null
+                        || context.getMatchEvaluation() == null
+                        || context.getMatchResult() == null
+        ) {
 
             System.err.println(
                     "[AgentCoordinator] MatchAgent failed after retries."
@@ -146,11 +171,14 @@ public class AgentCoordinator implements AutoCloseable {
         // ==========================
         // Agent 4: StrategyAgent
         // ==========================
+
         MatchEvaluation evaluation =
                 context.getMatchEvaluation();
 
-        if (evaluation.getOverallScore()
-                >= STRATEGY_THRESHOLD) {
+        if (
+                evaluation.getOverallScore()
+                        >= STRATEGY_THRESHOLD
+        ) {
 
             context =
                     executeAgentWithRetry(
@@ -210,8 +238,8 @@ public class AgentCoordinator implements AutoCloseable {
                             agentName
                     );
 
-            long startTime =
-                    System.currentTimeMillis();
+            long startTimeNanos =
+                    System.nanoTime();
 
             try {
 
@@ -227,25 +255,36 @@ public class AgentCoordinator implements AutoCloseable {
                 // ==========================
                 // Controlled retry test
                 // ==========================
+
                 String simulatedFailure =
                         System.getenv(
                                 "SIMULATE_AGENT_FAILURE"
                         );
 
-                if (attempt == 1
-                        && agentName.equals(
+                if (
+                        attempt == 1
+                                && agentName.equals(
                                 simulatedFailure
-                        )) {
+                        )
+                ) {
 
                     throw new RuntimeException(
                             "Simulated first-attempt failure for retry test."
                     );
                 }
 
+                // ==========================
+                // Execute agent
+                // ==========================
+
                 AgentContext result =
                         agent.execute(
                                 currentContext
                         );
+
+                // ==========================
+                // Validate result
+                // ==========================
 
                 validateAgentResult(
                         agentName,
@@ -253,8 +292,13 @@ public class AgentCoordinator implements AutoCloseable {
                 );
 
                 long durationMs =
-                        System.currentTimeMillis()
-                                - startTime;
+                        elapsedMillis(
+                                startTimeNanos
+                        );
+
+                // ==========================
+                // Mark success
+                // ==========================
 
                 if (runId != -1) {
 
@@ -263,6 +307,14 @@ public class AgentCoordinator implements AutoCloseable {
                             durationMs
                     );
                 }
+
+                System.out.println(
+                        "[AgentCoordinator] "
+                                + agentName
+                                + " completed in "
+                                + durationMs
+                                + " ms"
+                );
 
                 if (attempt > 1) {
 
@@ -279,8 +331,9 @@ public class AgentCoordinator implements AutoCloseable {
             } catch (Exception e) {
 
                 long durationMs =
-                        System.currentTimeMillis()
-                                - startTime;
+                        elapsedMillis(
+                                startTimeNanos
+                        );
 
                 String errorMessage =
                         buildErrorMessage(
@@ -301,7 +354,9 @@ public class AgentCoordinator implements AutoCloseable {
                                 + agentName
                                 + " attempt "
                                 + attempt
-                                + " failed: "
+                                + " failed after "
+                                + durationMs
+                                + " ms: "
                                 + errorMessage
                 );
 
@@ -329,6 +384,21 @@ public class AgentCoordinator implements AutoCloseable {
         return null;
     }
 
+    private long elapsedMillis(
+            long startTimeNanos
+    ) {
+
+        long elapsedNanos =
+                System.nanoTime()
+                        - startTimeNanos;
+
+        return Math.max(
+                1L,
+                (elapsedNanos + 999_999L)
+                        / 1_000_000L
+        );
+    }
+
     private void validateAgentResult(
             String agentName,
             AgentContext context
@@ -346,8 +416,10 @@ public class AgentCoordinator implements AutoCloseable {
 
             case "JobAnalysisAgent" -> {
 
-                if (context.getJobAnalysis()
-                        == null) {
+                if (
+                        context.getJobAnalysis()
+                                == null
+                ) {
 
                     throw new IllegalStateException(
                             "JobAnalysisAgent returned no JobAnalysis."
@@ -357,10 +429,12 @@ public class AgentCoordinator implements AutoCloseable {
 
             case "MatchAgent" -> {
 
-                if (context.getMatchEvaluation()
-                        == null
-                        || context.getMatchResult()
-                        == null) {
+                if (
+                        context.getMatchEvaluation()
+                                == null
+                                || context.getMatchResult()
+                                == null
+                ) {
 
                     throw new IllegalStateException(
                             "MatchAgent returned incomplete match result."
@@ -370,8 +444,10 @@ public class AgentCoordinator implements AutoCloseable {
 
             case "StrategyAgent" -> {
 
-                if (context.getStrategy()
-                        == null) {
+                if (
+                        context.getStrategy()
+                                == null
+                ) {
 
                     throw new IllegalStateException(
                             "StrategyAgent returned no ApplicationStrategy."
@@ -380,7 +456,7 @@ public class AgentCoordinator implements AutoCloseable {
             }
 
             default -> {
-                // PreFilterAgent only needs a non-null AgentContext.
+                // PreFilterAgent only needs a non-null context.
             }
         }
     }
@@ -392,8 +468,10 @@ public class AgentCoordinator implements AutoCloseable {
         String message =
                 e.getMessage();
 
-        if (message == null
-                || message.isBlank()) {
+        if (
+                message == null
+                        || message.isBlank()
+        ) {
 
             return e.getClass()
                     .getSimpleName();
@@ -444,8 +522,14 @@ public class AgentCoordinator implements AutoCloseable {
     @Override
     public void close() {
 
-        strategyAgent.close();
-        matchAgent.close();
-        jobAnalysisAgent.close();
+        System.out.println(
+                "[AgentCoordinator] Closing shared OpenAI client..."
+        );
+
+        openAIClient.close();
+
+        System.out.println(
+                "[AgentCoordinator] Shared OpenAI client closed."
+        );
     }
 }

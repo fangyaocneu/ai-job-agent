@@ -62,8 +62,9 @@ public class JobPreFilter {
             "united states",
             "usa",
             "u.s.",
-            "us ",
             "u.s.a",
+            "us government",
+            "u.s. government",
             "canada",
             "mexico",
             "north america"
@@ -108,7 +109,6 @@ public class JobPreFilter {
             "australia",
             "new zealand",
             "united kingdom",
-            "uk",
             "london",
             "ireland",
             "germany",
@@ -129,14 +129,19 @@ public class JobPreFilter {
     public boolean shouldScore(Job job) {
 
         String title =
-                normalize(job.getTitle());
+                normalize(
+                        job.getTitle()
+                );
 
         String location =
-                normalize(job.getLocation());
+                normalize(
+                        job.getLocation()
+                );
 
         // ==========================
         // 1. Remove irrelevant roles
         // ==========================
+
         for (String excluded : EXCLUDE_KEYWORDS) {
 
             if (title.contains(excluded)) {
@@ -147,6 +152,7 @@ public class JobPreFilter {
         // ==========================
         // 2. Remove Staff+ roles
         // ==========================
+
         for (String senior : SENIORITY_EXCLUDES) {
 
             if (title.contains(senior)) {
@@ -157,6 +163,7 @@ public class JobPreFilter {
         // ==========================
         // 3. Check relevant SWE role
         // ==========================
+
         boolean relevantRole =
                 false;
 
@@ -178,7 +185,12 @@ public class JobPreFilter {
         // ==========================
         // 4. North America location
         // ==========================
-        if (!isNorthAmericaLocation(location)) {
+
+        if (!isNorthAmericaLocation(
+                title,
+                location
+        )) {
+
             return false;
         }
 
@@ -186,56 +198,129 @@ public class JobPreFilter {
     }
 
     private boolean isNorthAmericaLocation(
+            String title,
             String location
     ) {
 
-        // Some job sources may not provide location.
-        // Do not reject missing location yet.
-        if (location == null
-                || location.isBlank()) {
+        String combined =
+                title
+                        + " "
+                        + location;
 
-            return true;
-        }
+        // ==========================
+        // Explicit non-North America
+        // ==========================
 
-        // Explicitly reject known non-North-America locations.
+        // Some ATS providers include location in the
+        // job title instead of the location field.
+        //
+        // Example:
+        // "Software Engineer, Internship - France"
+        //
+        // Therefore we inspect BOTH title and location.
+
         for (String excluded : NON_NORTH_AMERICA_KEYWORDS) {
 
-            if (location.contains(excluded)) {
+            if (combined.contains(excluded)) {
                 return false;
             }
         }
 
-        // Generic remote roles are allowed because
-        // some providers omit the exact region.
-        if (location.equals("remote")
-                || location.contains("remote - us")
-                || location.contains("remote us")
-                || location.contains("remote, us")
-                || location.contains("remote - canada")
-                || location.contains("remote canada")
-                || location.contains("remote - north america")
-                || location.contains("remote north america")) {
+        // Handle UK separately so that a short
+        // substring such as "uk" does not accidentally
+        // match unrelated words.
+
+        if (
+                containsStandaloneToken(
+                        combined,
+                        "uk"
+                )
+        ) {
+
+            return false;
+        }
+
+        // ==========================
+        // Explicit North America
+        // ==========================
+
+        for (String allowed : NORTH_AMERICA_KEYWORDS) {
+
+            if (combined.contains(allowed)) {
+                return true;
+            }
+        }
+
+        // ==========================
+        // US states
+        // ==========================
+
+        for (String state : US_STATE_KEYWORDS) {
+
+            if (combined.contains(state)) {
+                return true;
+            }
+        }
+
+        // ==========================
+        // Remote jobs
+        // ==========================
+
+        if (
+                location.equals("remote")
+                        || location.contains("remote - us")
+                        || location.contains("remote us")
+                        || location.contains("remote, us")
+                        || location.contains("remote - usa")
+                        || location.contains("remote usa")
+                        || location.contains("remote - canada")
+                        || location.contains("remote canada")
+                        || location.contains("remote - north america")
+                        || location.contains("remote north america")
+        ) {
 
             return true;
         }
 
-        // Explicit North America location.
-        for (String allowed : NORTH_AMERICA_KEYWORDS) {
+        // ==========================
+        // Missing location
+        // ==========================
 
-            if (location.contains(allowed)) {
-                return true;
-            }
-        }
+        // Some sources provide no usable location.
+        // If neither title nor location identifies an
+        // excluded country, allow it for now.
 
-        // Common US states.
-        for (String state : US_STATE_KEYWORDS) {
+        if (
+                location == null
+                        || location.isBlank()
+        ) {
 
-            if (location.contains(state)) {
-                return true;
-            }
+            return true;
         }
 
         return false;
+    }
+
+    private boolean containsStandaloneToken(
+            String text,
+            String token
+    ) {
+
+        String padded =
+                " "
+                        + text
+                        .replace(",", " ")
+                        .replace("-", " ")
+                        .replace("/", " ")
+                        .replace("(", " ")
+                        .replace(")", " ")
+                        + " ";
+
+        return padded.contains(
+                " "
+                        + token
+                        + " "
+        );
     }
 
     private String normalize(

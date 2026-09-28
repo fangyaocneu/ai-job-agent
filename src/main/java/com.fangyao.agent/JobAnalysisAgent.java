@@ -2,19 +2,24 @@ package com.fangyao.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
 public class JobAnalysisAgent
-        implements Agent<AgentContext, AgentContext>, AutoCloseable {
+        implements Agent<AgentContext, AgentContext> {
 
     private final OpenAIClient client;
     private final ObjectMapper objectMapper;
 
-    public JobAnalysisAgent() {
-        this.client = OpenAIOkHttpClient.fromEnv();
-        this.objectMapper = new ObjectMapper();
+    public JobAnalysisAgent(
+            OpenAIClient client
+    ) {
+
+        this.client =
+                client;
+
+        this.objectMapper =
+                new ObjectMapper();
     }
 
     @Override
@@ -22,16 +27,17 @@ public class JobAnalysisAgent
             AgentContext context
     ) {
 
-        Job job = context.getJob();
+        Job job =
+                context.getJob();
+
+        System.out.println(
+                "[JobAnalysisAgent] Analyzing job ID: "
+                        + job.getId()
+                        + " | "
+                        + job.getTitle()
+        );
 
         try {
-
-            System.out.println(
-                    "[JobAnalysisAgent] Analyzing job ID: "
-                            + job.getId()
-                            + " | "
-                            + job.getTitle()
-            );
 
             String prompt = """
                     Analyze this software engineering job posting.
@@ -80,9 +86,10 @@ public class JobAnalysisAgent
                             .build();
 
             Response response =
-                    client.responses().create(
-                            request
-                    );
+                    client.responses()
+                            .create(
+                                    request
+                            );
 
             String output =
                     extractOutputText(
@@ -104,17 +111,16 @@ public class JobAnalysisAgent
                             + job.getId()
             );
 
+            return context;
+
         } catch (Exception e) {
 
-            System.err.println(
-                    "[JobAnalysisAgent] Failed job ID: "
-                            + job.getId()
+            throw new RuntimeException(
+                    "JobAnalysisAgent failed for job ID: "
+                            + job.getId(),
+                    e
             );
-
-            e.printStackTrace();
         }
-
-        return context;
     }
 
     private String extractOutputText(
@@ -124,7 +130,8 @@ public class JobAnalysisAgent
         StringBuilder output =
                 new StringBuilder();
 
-        response.output().stream()
+        response.output()
+                .stream()
                 .flatMap(
                         item ->
                                 item.message()
@@ -156,10 +163,5 @@ public class JobAnalysisAgent
 
         return output.toString()
                 .trim();
-    }
-
-    @Override
-    public void close() {
-        client.close();
     }
 }
