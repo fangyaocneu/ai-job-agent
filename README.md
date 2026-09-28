@@ -53,3 +53,143 @@ JobSource
    ├── RemoteOkJobSource
    ├── GreenhouseJobSource
    └── LeverJobSource
+
+
+-----------
+##Multi-Agent AI Workflow
+
+PreFilterAgent
+      ↓
+JobAnalysisAgent
+      ↓
+MatchAgent
+      ↓
+StrategyAgent
+
+1. PreFilterAgent
+The PreFilter Agent determines whether a job should continue through the AI pipeline.
+Responsibilities include:
+- Role relevance filtering
+- Location validation
+- Seniority filtering
+- Early rejection of obviously irrelevant jobs
+Jobs rejected here avoid unnecessary OpenAI API calls.
+
+2. JobAnalysisAgent
+The Job Analysis Agent converts an unstructured job description into structured information.
+It extracts:
+- Role type
+- Seniority
+- Primary skills
+- Secondary skills
+- Required years of experience
+- Job summary
+
+3. MatchAgent
+The Match Agent compares the structured job requirements with the candidate profile.
+It produces:
+- Overall match score
+- Skill score
+- Experience score
+- Role-fit score
+- Match reason
+- Strengths
+- Missing skills
+
+4. StrategyAgent
+The Strategy Agent decides how the candidate should approach the opportunity.
+It produces:
+- Recommendation
+- Application priority
+- Resume focus
+- Concerns
+- Application advice
+
+
+##Agent Orchestration
+                AgentCoordinator
+                       │
+                       ▼
+                 AgentContext
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+   Job Data       AI Results      Agent State
+
+##System Architecture
+
+                        JOB SOURCES
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+          ▼                  ▼                  ▼
+      Remotive           RemoteOK          Greenhouse
+                                                │
+                                                ▼
+                                              Lever
+                             │
+                             ▼
+                    JobSource Interface
+                             │
+                             ▼
+                     Job Ingestion Layer
+                             │
+                             ▼
+                        PostgreSQL
+                             │
+                             ▼
+                      AgentCoordinator
+                             │
+                             ▼
+                      PreFilterAgent
+                             │
+                             ▼
+                     JobAnalysisAgent
+                             │
+                             ▼
+                        MatchAgent
+                             │
+                             ▼
+                      StrategyAgent
+                             │
+             ┌───────────────┼───────────────┐
+             │               │               │
+             ▼               ▼               ▼
+     job_agent_results   agent_runs         Email
+             │               │
+             └───────┬───────┘
+                     ▼
+              Spring Boot API
+                     │
+                     ▼
+               React Dashboard
+
+##Daily Automation Workflow
+
+DailyJobRunner
+      ↓
+Search Job Sources
+      ↓
+Normalize Jobs
+      ↓
+Deduplicate Jobs
+      ↓
+Save to PostgreSQL
+      ↓
+Select Unscored Jobs
+      ↓
+PreFilter
+      ↓
+AgentCoordinator
+      ↓
+JobAnalysisAgent
+      ↓
+MatchAgent
+      ↓
+StrategyAgent
+      ↓
+Persist Results
+      ↓
+Send Email
+      ↓
+Update Dashboard
