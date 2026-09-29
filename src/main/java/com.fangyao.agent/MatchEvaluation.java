@@ -10,6 +10,9 @@ public class MatchEvaluation {
     private int experienceScore;
     private int roleFitScore;
 
+    private int preferenceScore;
+    private int finalScore;
+
     private String reason;
     private String gap;
 
@@ -65,6 +68,26 @@ public class MatchEvaluation {
         this.roleFitScore = roleFitScore;
     }
 
+    public int getPreferenceScore() {
+        return preferenceScore;
+    }
+
+    public void setPreferenceScore(
+            int preferenceScore
+    ) {
+        this.preferenceScore = preferenceScore;
+    }
+
+    public int getFinalScore() {
+        return finalScore;
+    }
+
+    public void setFinalScore(
+            int finalScore
+    ) {
+        this.finalScore = finalScore;
+    }
+
     public String getReason() {
         return reason;
     }
@@ -92,7 +115,11 @@ public class MatchEvaluation {
     public void setStrengths(
             List<String> strengths
     ) {
-        this.strengths = strengths;
+
+        this.strengths =
+                strengths == null
+                        ? new ArrayList<>()
+                        : strengths;
     }
 
     public List<String> getMissingSkills() {
@@ -102,13 +129,19 @@ public class MatchEvaluation {
     public void setMissingSkills(
             List<String> missingSkills
     ) {
-        this.missingSkills = missingSkills;
+
+        this.missingSkills =
+                missingSkills == null
+                        ? new ArrayList<>()
+                        : missingSkills;
     }
 
     public JobMatchResult toJobMatchResult() {
 
         return new JobMatchResult(
-                overallScore,
+                finalScore > 0
+                        ? finalScore
+                        : overallScore,
                 reason,
                 gap
         );

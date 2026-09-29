@@ -1,31 +1,53 @@
 import { useEffect, useState } from "react";
 
 function parseList(value) {
+
     if (!value) {
         return [];
     }
 
     try {
-        const parsed = JSON.parse(value);
+
+        const parsed =
+            JSON.parse(value);
 
         return Array.isArray(parsed)
             ? parsed
             : [];
+
     } catch {
         return [];
     }
 }
 
-function ScoreItem({ label, score }) {
+function ScoreItem({
+    label,
+    score,
+    weight
+}) {
+
     return (
         <div className="agent-score-item">
+
             <span className="agent-score-label">
                 {label}
+
+                {weight && (
+                    <small
+                        style={{
+                            marginLeft: "6px",
+                            opacity: 0.6
+                        }}
+                    >
+                        {weight}
+                    </small>
+                )}
             </span>
 
             <span className="agent-score-value">
                 {score ?? "-"}
             </span>
+
         </div>
     );
 }
@@ -40,6 +62,29 @@ function AgentInsights({ jobId }) {
 
     const [error, setError] =
         useState(null);
+
+    // =========================
+    // Feedback State
+    // =========================
+
+    const [feedbackLabel, setFeedbackLabel] =
+        useState("");
+
+    const [feedbackReason, setFeedbackReason] =
+        useState("");
+
+    const [feedbackComment, setFeedbackComment] =
+        useState("");
+
+    const [feedbackSaving, setFeedbackSaving] =
+        useState(false);
+
+    const [feedbackMessage, setFeedbackMessage] =
+        useState("");
+
+    // =========================
+    // Load AI Insights
+    // =========================
 
     useEffect(() => {
 
@@ -56,7 +101,7 @@ function AgentInsights({ jobId }) {
 
                 const response =
                     await fetch(
-                        `http://localhost:8080/api/jobs/${jobId}/agent-insights`
+                        `/api/jobs/${jobId}/agent-insights`
                     );
 
                 if (response.status === 404) {
@@ -97,6 +142,154 @@ function AgentInsights({ jobId }) {
         loadInsights();
 
     }, [jobId]);
+
+    // =========================
+    // Load Existing Feedback
+    // =========================
+
+    useEffect(() => {
+
+        if (!jobId) {
+            return;
+        }
+
+        async function loadFeedback() {
+
+            try {
+
+                const response =
+                    await fetch(
+                        `/api/jobs/${jobId}/feedback`
+                    );
+
+                if (response.status === 404) {
+
+                    setFeedbackLabel("");
+                    setFeedbackReason("");
+                    setFeedbackComment("");
+
+                    return;
+                }
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `HTTP ${response.status}`
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                setFeedbackLabel(
+                    data.feedbackLabel || ""
+                );
+
+                setFeedbackReason(
+                    data.reason || ""
+                );
+
+                setFeedbackComment(
+                    data.comment || ""
+                );
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to load feedback:",
+                    err
+                );
+            }
+        }
+
+        loadFeedback();
+
+    }, [jobId]);
+
+    // =========================
+    // Save Feedback
+    // =========================
+
+    async function saveFeedback() {
+
+        if (!feedbackLabel) {
+
+            setFeedbackMessage(
+                "Please choose Like or Dislike."
+            );
+
+            return;
+        }
+
+        try {
+
+            setFeedbackSaving(true);
+            setFeedbackMessage("");
+
+            const response =
+                await fetch(
+                    `/api/jobs/${jobId}/feedback`,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                feedbackLabel,
+                                reason:
+                                    feedbackReason || null,
+                                comment:
+                                    feedbackComment || null
+                            })
+                    }
+                );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+            }
+
+            const saved =
+                await response.json();
+
+            setFeedbackLabel(
+                saved.feedbackLabel || ""
+            );
+
+            setFeedbackReason(
+                saved.reason || ""
+            );
+
+            setFeedbackComment(
+                saved.comment || ""
+            );
+
+            setFeedbackMessage(
+                "Feedback saved."
+            );
+
+        } catch (err) {
+
+            console.error(
+                "Failed to save feedback:",
+                err
+            );
+
+            setFeedbackMessage(
+                "Unable to save feedback."
+            );
+
+        } finally {
+
+            setFeedbackSaving(false);
+        }
+    }
 
     if (loading) {
 
@@ -155,12 +348,43 @@ function AgentInsights({ jobId }) {
             insights.concerns
         );
 
+    const displayScore =
+        insights.finalScore
+        ?? insights.overallScore;
+
+    const likeReasons = [
+        ["GOOD_ROLE", "Good Role"],
+        ["GOOD_TECH_STACK", "Good Tech Stack"],
+        ["GOOD_LOCATION", "Good Location"],
+        ["GOOD_WORK_MODE", "Good Work Mode"]
+    ];
+
+    const dislikeReasons = [
+        ["WRONG_ROLE", "Wrong Role"],
+        ["WRONG_LOCATION", "Wrong Location"],
+        ["TOO_SENIOR", "Too Senior"],
+        ["MISSING_SKILLS", "Missing Skills"],
+        ["NOT_INTERESTED", "Not Interested"]
+    ];
+
+    const reasonOptions =
+        feedbackLabel === "LIKE"
+            ? likeReasons
+            : feedbackLabel === "DISLIKE"
+                ? dislikeReasons
+                : [];
+
     return (
         <div className="agent-insights-card">
+
+            {/* ========================= */}
+            {/* Header */}
+            {/* ========================= */}
 
             <div className="agent-insights-header">
 
                 <div>
+
                     <h2>
                         AI Insights
                     </h2>
@@ -180,51 +404,229 @@ function AgentInsights({ jobId }) {
                         )}
 
                     </div>
+
                 </div>
 
-                {insights.overallScore != null && (
+                {displayScore != null && (
+
                     <div className="overall-score">
 
                         <span className="overall-score-number">
-                            {insights.overallScore}
+                            {displayScore}
                         </span>
 
                         <span className="overall-score-label">
-                            Match
+                            Final Match
                         </span>
 
                     </div>
+
                 )}
 
             </div>
 
+            {/* ========================= */}
+            {/* Phase 6 Scores */}
+            {/* ========================= */}
+
             <div className="agent-score-grid">
 
                 <ScoreItem
-                    label="Skill"
+                    label="Skill Fit"
                     score={insights.skillScore}
+                    weight="40%"
                 />
 
                 <ScoreItem
-                    label="Experience"
+                    label="Experience Fit"
                     score={insights.experienceScore}
+                    weight="25%"
                 />
 
                 <ScoreItem
                     label="Role Fit"
                     score={insights.roleFitScore}
+                    weight="20%"
                 />
 
                 <ScoreItem
-                    label="Years Required"
-                    score={
-                        insights.requiredYearsExperience
-                    }
+                    label="Preference Fit"
+                    score={insights.preferenceScore}
+                    weight="15%"
                 />
 
             </div>
 
+            {insights.finalScore != null && (
+
+                <section className="agent-section">
+
+                    <h3>
+                        Personalized Match
+                    </h3>
+
+                    <p>
+                        Final Score:{" "}
+                        <strong>
+                            {insights.finalScore}
+                        </strong>
+                        {" "} / 100
+                    </p>
+
+                    <p
+                        style={{
+                            opacity: 0.7,
+                            fontSize: "14px"
+                        }}
+                    >
+                        Skill 40% · Experience 25% ·
+                        Role Fit 20% · Preference 15%
+                    </p>
+
+                </section>
+
+            )}
+
+            {/* ========================= */}
+            {/* Feedback */}
+            {/* ========================= */}
+
+            <section className="agent-section feedback-section">
+
+                <h3>
+                    Recommendation Feedback
+                </h3>
+
+                <p>
+                    Was this recommendation useful?
+                </p>
+
+                <div className="feedback-buttons">
+
+                    <button
+                        type="button"
+                        className={
+                            feedbackLabel === "LIKE"
+                                ? "feedback-button active"
+                                : "feedback-button"
+                        }
+                        onClick={() => {
+
+                            setFeedbackLabel("LIKE");
+                            setFeedbackReason("");
+                            setFeedbackMessage("");
+                        }}
+                    >
+                        👍 Like
+                    </button>
+
+                    <button
+                        type="button"
+                        className={
+                            feedbackLabel === "DISLIKE"
+                                ? "feedback-button active"
+                                : "feedback-button"
+                        }
+                        onClick={() => {
+
+                            setFeedbackLabel("DISLIKE");
+                            setFeedbackReason("");
+                            setFeedbackMessage("");
+                        }}
+                    >
+                        👎 Dislike
+                    </button>
+
+                </div>
+
+                {feedbackLabel && (
+
+                    <div className="feedback-form">
+
+                        <label>
+                            Reason
+                        </label>
+
+                        <select
+                            value={feedbackReason}
+                            onChange={(e) =>
+                                setFeedbackReason(
+                                    e.target.value
+                                )
+                            }
+                        >
+
+                            <option value="">
+                                Select a reason
+                            </option>
+
+                            {reasonOptions.map(
+                                ([value, label]) => (
+
+                                    <option
+                                        key={value}
+                                        value={value}
+                                    >
+                                        {label}
+                                    </option>
+
+                                )
+                            )}
+
+                        </select>
+
+                        <label>
+                            Comment
+                        </label>
+
+                        <textarea
+                            rows="3"
+                            placeholder="Optional feedback..."
+                            value={feedbackComment}
+                            onChange={(e) =>
+                                setFeedbackComment(
+                                    e.target.value
+                                )
+                            }
+                        />
+
+                        <div className="feedback-actions">
+
+                            <button
+                                type="button"
+                                className="save-application-button"
+                                onClick={saveFeedback}
+                                disabled={feedbackSaving}
+                            >
+                                {
+                                    feedbackSaving
+                                        ? "Saving..."
+                                        : "Save Feedback"
+                                }
+                            </button>
+
+                            {feedbackMessage && (
+
+                                <span className="profile-message">
+                                    {feedbackMessage}
+                                </span>
+
+                            )}
+
+                        </div>
+
+                    </div>
+
+                )}
+
+            </section>
+
+            {/* ========================= */}
+            {/* Role Analysis */}
+            {/* ========================= */}
+
             {insights.analysisSummary && (
+
                 <section className="agent-section">
 
                     <h3>
@@ -236,9 +638,15 @@ function AgentInsights({ jobId }) {
                     </p>
 
                 </section>
+
             )}
 
+            {/* ========================= */}
+            {/* Primary Skills */}
+            {/* ========================= */}
+
             {primarySkills.length > 0 && (
+
                 <section className="agent-section">
 
                     <h3>
@@ -263,9 +671,15 @@ function AgentInsights({ jobId }) {
                     </div>
 
                 </section>
+
             )}
 
+            {/* ========================= */}
+            {/* Strengths */}
+            {/* ========================= */}
+
             {strengths.length > 0 && (
+
                 <section className="agent-section">
 
                     <h3>
@@ -287,9 +701,15 @@ function AgentInsights({ jobId }) {
                     </ul>
 
                 </section>
+
             )}
 
+            {/* ========================= */}
+            {/* Missing Skills */}
+            {/* ========================= */}
+
             {missingSkills.length > 0 && (
+
                 <section className="agent-section">
 
                     <h3>
@@ -311,9 +731,15 @@ function AgentInsights({ jobId }) {
                     </ul>
 
                 </section>
+
             )}
 
+            {/* ========================= */}
+            {/* Application Strategy */}
+            {/* ========================= */}
+
             {insights.recommendation && (
+
                 <section className="agent-section strategy-section">
 
                     <div className="strategy-header">
@@ -329,9 +755,11 @@ function AgentInsights({ jobId }) {
                             </span>
 
                             {insights.priority && (
+
                                 <span className="priority-badge">
                                     {insights.priority}
                                 </span>
+
                             )}
 
                         </div>
@@ -340,6 +768,7 @@ function AgentInsights({ jobId }) {
 
                     {resumeFocus.length > 0 && (
                         <>
+
                             <h4>
                                 Resume Focus
                             </h4>
@@ -357,11 +786,13 @@ function AgentInsights({ jobId }) {
                                 )}
 
                             </ul>
+
                         </>
                     )}
 
                     {concerns.length > 0 && (
                         <>
+
                             <h4>
                                 Concerns
                             </h4>
@@ -379,27 +810,34 @@ function AgentInsights({ jobId }) {
                                 )}
 
                             </ul>
+
                         </>
                     )}
 
                     {insights.applicationAdvice && (
                         <>
+
                             <h4>
                                 Advice
                             </h4>
 
                             <p>
-                                {
-                                    insights.applicationAdvice
-                                }
+                                {insights.applicationAdvice}
                             </p>
+
                         </>
                     )}
 
                 </section>
+
             )}
 
+            {/* ========================= */}
+            {/* Secondary Skills */}
+            {/* ========================= */}
+
             {secondarySkills.length > 0 && (
+
                 <section className="agent-section">
 
                     <h3>
@@ -424,6 +862,7 @@ function AgentInsights({ jobId }) {
                     </div>
 
                 </section>
+
             )}
 
         </div>

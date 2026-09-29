@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import AgentInsights from "./components/AgentInsights";
+import Profile from "./components/Profile";
+import Chat from "./components/Chat";
 
 function App() {
   // =========================
@@ -183,9 +185,9 @@ function App() {
           currentJobs.map((job) =>
             job.id === id
               ? {
-                  ...job,
-                  [status]: value,
-                }
+                ...job,
+                [status]: value,
+              }
               : job
           )
         );
@@ -238,7 +240,7 @@ function App() {
 
       setApplicationStage(
         job.applicationStage ||
-          "NOT_APPLIED"
+        "NOT_APPLIED"
       );
 
       setNotes(
@@ -311,14 +313,14 @@ function App() {
               currentJobs.map(
                 (job) =>
                   job.id ===
-                  selectedJob.id
+                    selectedJob.id
                     ? {
-                        ...job,
-                        applicationStage,
-                        notes,
-                        appliedAt,
-                        followUpDate,
-                      }
+                      ...job,
+                      applicationStage,
+                      notes,
+                      appliedAt,
+                      followUpDate,
+                    }
                     : job
               )
           );
@@ -404,7 +406,7 @@ function App() {
           followUp.getTime() -
           today.getTime()
         ) /
-          millisecondsPerDay
+        millisecondsPerDay
       );
 
     if (diffDays < 0) {
@@ -414,10 +416,9 @@ function App() {
       return {
         type: "overdue",
         label:
-          `Overdue by ${overdueDays} day${
-            overdueDays === 1
-              ? ""
-              : "s"
+          `Overdue by ${overdueDays} day${overdueDays === 1
+            ? ""
+            : "s"
           }`,
       };
     }
@@ -432,10 +433,9 @@ function App() {
     return {
       type: "upcoming",
       label:
-        `Due in ${diffDays} day${
-          diffDays === 1
-            ? ""
-            : "s"
+        `Due in ${diffDays} day${diffDays === 1
+          ? ""
+          : "s"
         }`,
     };
   };
@@ -498,7 +498,7 @@ function App() {
           const matchesScore =
             job.matchScore != null &&
             job.matchScore >=
-              minScore;
+            minScore;
 
           const notIgnored =
             !job.ignored;
@@ -598,27 +598,27 @@ function App() {
   const averageAgentDuration =
     durationRuns.length > 0
       ? Math.round(
-          durationRuns.reduce(
-            (sum, run) =>
-              sum +
-              Number(
-                run.durationMs
-              ),
-            0
-          ) /
-            durationRuns.length
-        )
+        durationRuns.reduce(
+          (sum, run) =>
+            sum +
+            Number(
+              run.durationMs
+            ),
+          0
+        ) /
+        durationRuns.length
+      )
       : 0;
 
   const successRate =
     agentRuns.length > 0
       ? Math.round(
-          (
-            successfulRuns.length /
-            agentRuns.length
-          ) *
-            100
-        )
+        (
+          successfulRuns.length /
+          agentRuns.length
+        ) *
+        100
+      )
       : 0;
 
   // =========================
@@ -886,8 +886,8 @@ function App() {
           {
             selectedJob.publishedAt
               ? new Date(
-                  selectedJob.publishedAt
-                ).toLocaleDateString()
+                selectedJob.publishedAt
+              ).toLocaleDateString()
               : "Not specified"
           }
         </p>
@@ -1054,7 +1054,7 @@ function App() {
           <textarea
             rows="6"
             placeholder=
-              "Add application notes..."
+            "Add application notes..."
             value={notes}
             onChange={(e) =>
               setNotes(
@@ -1065,9 +1065,9 @@ function App() {
 
           <button
             className=
-              "save-application-button"
+            "save-application-button"
             onClick=
-              {saveApplicationDetails}
+            {saveApplicationDetails}
             disabled={
               savingApplication
             }
@@ -1285,7 +1285,7 @@ function App() {
         <input
           type="text"
           placeholder=
-            "Search title, company, location..."
+          "Search title, company, location..."
           value={search}
           onChange={(e) =>
             setSearch(
@@ -1362,8 +1362,8 @@ function App() {
               </div>
             )
             : filteredJobs.map(
-                renderJobCard
-              )
+              renderJobCard
+            )
         }
 
       </div>
@@ -1404,38 +1404,38 @@ function App() {
               </p>
             )
             : columnJobs.map(
-                (job) => (
-                  <div
-                    className="pipeline-card"
-                    key={job.id}
-                    onClick={() =>
-                      openJobDetails(
-                        job.id
-                      )
+              (job) => (
+                <div
+                  className="pipeline-card"
+                  key={job.id}
+                  onClick={() =>
+                    openJobDetails(
+                      job.id
+                    )
+                  }
+                >
+                  <strong>
+                    {
+                      job.title
                     }
-                  >
-                    <strong>
-                      {
-                        job.title
-                      }
-                    </strong>
+                  </strong>
 
-                    <span>
-                      {
-                        job.company
-                      }
-                    </span>
+                  <span>
+                    {
+                      job.company
+                    }
+                  </span>
 
-                    <span>
-                      Score:{" "}
-                      {
-                        job.matchScore ??
-                        "-"
-                      }
-                    </span>
-                  </div>
-                )
+                  <span>
+                    Score:{" "}
+                    {
+                      job.matchScore ??
+                      "-"
+                    }
+                  </span>
+                </div>
               )
+            )
         }
 
       </div>
@@ -1529,8 +1529,8 @@ function App() {
               </div>
             )
             : followUpsDue.map(
-                renderJobCard
-              )
+              renderJobCard
+            )
         }
 
       </div>
@@ -1883,126 +1883,126 @@ function App() {
               </p>
             )
             : agentRuns.length === 0
-            ? (
-              <p>
-                No agent execution history found.
-              </p>
-            )
-            : (
-              <div className="agent-run-table-wrapper">
+              ? (
+                <p>
+                  No agent execution history found.
+                </p>
+              )
+              : (
+                <div className="agent-run-table-wrapper">
 
-                <table className="agent-run-table">
+                  <table className="agent-run-table">
 
-                  <thead>
-                    <tr>
+                    <thead>
+                      <tr>
 
-                      <th>
-                        ID
-                      </th>
+                        <th>
+                          ID
+                        </th>
 
-                      <th>
-                        Agent
-                      </th>
+                        <th>
+                          Agent
+                        </th>
 
-                      <th>
-                        Job
-                      </th>
+                        <th>
+                          Job
+                        </th>
 
-                      <th>
-                        Status
-                      </th>
+                        <th>
+                          Status
+                        </th>
 
-                      <th>
-                        Duration
-                      </th>
+                        <th>
+                          Duration
+                        </th>
 
-                      <th>
-                        Started
-                      </th>
+                        <th>
+                          Started
+                        </th>
 
-                    </tr>
-                  </thead>
+                      </tr>
+                    </thead>
 
-                  <tbody>
+                    <tbody>
 
-                    {
-                      agentRuns
-                        .slice(
-                          0,
-                          30
-                        )
-                        .map(
-                          (run) => (
+                      {
+                        agentRuns
+                          .slice(
+                            0,
+                            30
+                          )
+                          .map(
+                            (run) => (
 
-                            <tr
-                              key={
-                                run.id
-                              }
-                            >
-
-                              <td>
-                                #
-                                {
+                              <tr
+                                key={
                                   run.id
                                 }
-                              </td>
+                              >
 
-                              <td>
-                                <strong>
+                                <td>
+                                  #
                                   {
-                                    run.agentName
+                                    run.id
                                   }
-                                </strong>
-                              </td>
+                                </td>
 
-                              <td>
-                                {
-                                  run.jobId
-                                }
-                              </td>
+                                <td>
+                                  <strong>
+                                    {
+                                      run.agentName
+                                    }
+                                  </strong>
+                                </td>
 
-                              <td>
-
-                                <span
-                                  className={
-                                    `agent-status ${run.status?.toLowerCase()}`
-                                  }
-                                >
+                                <td>
                                   {
-                                    run.status
+                                    run.jobId
                                   }
-                                </span>
+                                </td>
 
-                              </td>
+                                <td>
 
-                              <td>
-                                {
-                                  formatDuration(
-                                    run.durationMs
-                                  )
-                                }
-                              </td>
+                                  <span
+                                    className={
+                                      `agent-status ${run.status?.toLowerCase()}`
+                                    }
+                                  >
+                                    {
+                                      run.status
+                                    }
+                                  </span>
 
-                              <td>
-                                {
-                                  formatDateTime(
-                                    run.startedAt
-                                  )
-                                }
-                              </td>
+                                </td>
 
-                            </tr>
+                                <td>
+                                  {
+                                    formatDuration(
+                                      run.durationMs
+                                    )
+                                  }
+                                </td>
 
+                                <td>
+                                  {
+                                    formatDateTime(
+                                      run.startedAt
+                                    )
+                                  }
+                                </td>
+
+                              </tr>
+
+                            )
                           )
-                        )
-                    }
+                      }
 
-                  </tbody>
+                    </tbody>
 
-                </table>
+                  </table>
 
-              </div>
-            )
+                </div>
+              )
         }
 
       </div>
@@ -2164,225 +2164,243 @@ function App() {
   // Page switch
   // =========================
 
-  const renderPage = () => {
+ const renderPage = () => {
 
-    switch (page) {
+  switch (page) {
 
-      case "JOBS":
-        return renderJobs();
+    case "JOBS":
+      return renderJobs();
 
-      case "PIPELINE":
-        return renderPipeline();
+    case "PIPELINE":
+      return renderPipeline();
 
-      case "FOLLOW_UPS":
-        return renderFollowUps();
+    case "FOLLOW_UPS":
+      return renderFollowUps();
 
-      case "AGENTS":
-        return renderAgents();
+    case "AGENTS":
+      return renderAgents();
 
-      case "SETTINGS":
-        return renderSettings();
+    case "CHAT":
+      return <Chat />;
 
-      case "DASHBOARD":
-      default:
-        return renderDashboard();
-    }
-  };
+    case "PROFILE":
+      return <Profile />;
 
-  // =========================
-  // Loading
-  // =========================
+    case "SETTINGS":
+      return renderSettings();
 
-  if (!stats) {
-    return (
-      <div className="app-loading">
-        Loading AI Job Agent...
-      </div>
-    );
+    case "DASHBOARD":
+    default:
+      return renderDashboard();
   }
+};
 
-  // =========================
-  // Layout
-  // =========================
+// =========================
+// Loading
+// =========================
 
+if (!stats) {
   return (
-    <div className="app-shell">
-
-      <aside className="sidebar">
-
-        <div className="sidebar-brand">
-
-          <div className="brand-icon">
-            AI
-          </div>
-
-          <div>
-
-            <strong>
-              Job Agent
-            </strong>
-
-            <span>
-              Phase 5
-            </span>
-
-          </div>
-
-        </div>
-
-        <nav className="sidebar-nav">
-
-          <button
-            className={
-              page === "DASHBOARD"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              setPage(
-                "DASHBOARD"
-              )
-            }
-          >
-            <span>
-              ◫
-            </span>
-
-            Dashboard
-          </button>
-
-          <button
-            className={
-              page === "JOBS"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              setPage(
-                "JOBS"
-              )
-            }
-          >
-            <span>
-              ⌕
-            </span>
-
-            Jobs
-          </button>
-
-          <button
-            className={
-              page === "PIPELINE"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              setPage(
-                "PIPELINE"
-              )
-            }
-          >
-            <span>
-              ▤
-            </span>
-
-            Pipeline
-          </button>
-
-          <button
-            className={
-              page === "FOLLOW_UPS"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              setPage(
-                "FOLLOW_UPS"
-              )
-            }
-          >
-            <span>
-              ◷
-            </span>
-
-            Follow-ups
-
-            {
-              followUpsDue.length >
-                0 &&
-              (
-                <span className=
-                  "sidebar-count"
-                >
-                  {
-                    followUpsDue.length
-                  }
-                </span>
-              )
-            }
-
-          </button>
-
-          <button
-            className={
-              page === "AGENTS"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              setPage(
-                "AGENTS"
-              )
-            }
-          >
-            <span>
-              ◈
-            </span>
-
-            Agents
-          </button>
-
-          <button
-            className={
-              page === "SETTINGS"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              setPage(
-                "SETTINGS"
-              )
-            }
-          >
-            <span>
-              ⚙
-            </span>
-
-            Settings
-          </button>
-
-        </nav>
-
-        <div className="sidebar-footer">
-
-          <span className="status-dot" />
-
-          Agent online
-
-        </div>
-
-      </aside>
-
-      <main className="main-content">
-
-        {
-          renderPage()
-        }
-
-      </main>
-
+    <div className="app-loading">
+      Loading AI Job Agent...
     </div>
   );
+}
+
+// =========================
+// Layout
+// =========================
+
+return (
+  <div className="app-shell">
+
+    <aside className="sidebar">
+
+      <div className="sidebar-brand">
+
+        <div className="brand-icon">
+          AI
+        </div>
+
+        <div>
+
+          <strong>
+            Job Agent
+          </strong>
+
+          <span>
+            Phase 6
+          </span>
+
+        </div>
+
+      </div>
+
+      <nav className="sidebar-nav">
+
+        <button
+          className={
+            page === "DASHBOARD"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("DASHBOARD")
+          }
+        >
+          <span>
+            ◫
+          </span>
+
+          Dashboard
+        </button>
+
+        <button
+          className={
+            page === "JOBS"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("JOBS")
+          }
+        >
+          <span>
+            ⌕
+          </span>
+
+          Jobs
+        </button>
+
+        <button
+          className={
+            page === "PIPELINE"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("PIPELINE")
+          }
+        >
+          <span>
+            ▤
+          </span>
+
+          Pipeline
+        </button>
+
+        <button
+          className={
+            page === "FOLLOW_UPS"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("FOLLOW_UPS")
+          }
+        >
+          <span>
+            ◷
+          </span>
+
+          Follow-ups
+
+          {
+            followUpsDue.length > 0 && (
+              <span className="sidebar-count">
+                {followUpsDue.length}
+              </span>
+            )
+          }
+
+        </button>
+
+        <button
+          className={
+            page === "AGENTS"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("AGENTS")
+          }
+        >
+          <span>
+            ◈
+          </span>
+
+          Agents
+        </button>
+
+        <button
+          className={
+            page === "CHAT"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("CHAT")
+          }
+        >
+          <span>
+            ◉
+          </span>
+
+          Chat
+        </button>
+
+        <button
+          className={
+            page === "PROFILE"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("PROFILE")
+          }
+        >
+          <span>
+            ♙
+          </span>
+
+          Profile
+        </button>
+
+        <button
+          className={
+            page === "SETTINGS"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("SETTINGS")
+          }
+        >
+          <span>
+            ⚙
+          </span>
+
+          Settings
+        </button>
+
+      </nav>
+
+      <div className="sidebar-footer">
+
+        <span className="status-dot" />
+
+        Agent online
+
+      </div>
+
+    </aside>
+
+    <main className="main-content">
+      {renderPage()}
+    </main>
+
+  </div>
+);
 }
 
 export default App;

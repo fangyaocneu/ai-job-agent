@@ -23,8 +23,23 @@ public class StrategyAgent
         this.objectMapper =
                 new ObjectMapper();
 
+        CandidateProfileRepository profileRepository =
+                new CandidateProfileRepository();
+
         this.profile =
-                new CandidateProfile();
+                profileRepository.loadProfile();
+
+        if (this.profile == null) {
+
+            throw new IllegalStateException(
+                    "Candidate profile not found in database."
+            );
+        }
+
+        System.out.println(
+                "[StrategyAgent] Loaded candidate profile from database: "
+                        + profile.getName()
+        );
     }
 
     @Override
@@ -229,6 +244,7 @@ public class StrategyAgent
 
                 Important:
                 - Use the existing match evaluation as evidence.
+                - Use the candidate's preferred locations and work modes.
                 - Do not invent candidate experience.
                 - resumeFocus should only contain things the candidate actually has.
                 - concerns should highlight realistic application risks.

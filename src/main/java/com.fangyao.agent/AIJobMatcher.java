@@ -19,11 +19,26 @@ public class AIJobMatcher {
         this.client =
                 client;
 
+        CandidateProfileRepository profileRepository =
+                new CandidateProfileRepository();
+
         this.profile =
-                new CandidateProfile();
+                profileRepository.loadProfile();
+
+        if (this.profile == null) {
+
+            throw new IllegalStateException(
+                    "Candidate profile not found in database."
+            );
+        }
 
         this.objectMapper =
                 new ObjectMapper();
+
+        System.out.println(
+                "[AIJobMatcher] Loaded candidate profile from database: "
+                        + profile.getName()
+        );
     }
 
     // ==========================
@@ -62,7 +77,7 @@ public class AIJobMatcher {
     }
 
     // ==========================
-    // Phase 5 structured scoring
+    // Phase 6 personalized scoring
     // ==========================
 
     public MatchEvaluation evaluateJob(
@@ -108,6 +123,12 @@ public class AIJobMatcher {
                 Projects:
                 %s
 
+                Preferred Locations:
+                %s
+
+                Preferred Work Modes:
+                %s
+
                 Job Information:
 
                 Title:
@@ -136,6 +157,7 @@ public class AIJobMatcher {
                   "skillScore": 0,
                   "experienceScore": 0,
                   "roleFitScore": 0,
+                  "preferenceScore": 0,
                   "reason": "one short sentence",
                   "gap": "one short sentence",
                   "strengths": [
@@ -150,18 +172,39 @@ public class AIJobMatcher {
 
                 Scoring rules:
 
-                overallScore:
-                Overall candidate-job match from 0 to 100.
-
                 skillScore:
-                Match between required technologies and candidate skills.
+                Score from 0 to 100.
+                Measure how closely the required technologies and skills
+                match the candidate's actual technical skills.
 
                 experienceScore:
-                Match between required experience and candidate experience.
+                Score from 0 to 100.
+                Measure how closely the required experience level,
+                responsibilities, and background match the candidate.
 
                 roleFitScore:
-                Match between the job's role type/seniority
-                and the candidate's target roles.
+                Score from 0 to 100.
+                Measure how closely the role type and seniority
+                match the candidate's target roles.
+
+                preferenceScore:
+                Score from 0 to 100.
+                Measure how well the job matches the candidate's
+                preferred locations and preferred work modes.
+
+                For preferenceScore:
+                - Strong location and work-mode match should score high.
+                - Partial match should score moderately.
+                - Clear conflict with candidate preferences should score low.
+                - If the job description does not clearly specify work mode,
+                  do not automatically give a low score.
+                - If location information is incomplete, use a neutral score
+                  rather than inventing information.
+
+                overallScore:
+                Give a holistic score from 0 to 100.
+                This value is informational only.
+                The application will calculate the final weighted score itself.
 
                 strengths:
                 List the candidate's strongest relevant qualifications.
@@ -180,7 +223,10 @@ public class AIJobMatcher {
                 Important:
                 - Use the structured job analysis as the primary interpretation.
                 - Use the original description as supporting evidence.
+                - Use the candidate profile as the only source of candidate skills.
+                - Use preferred locations and work modes when calculating preferenceScore.
                 - Do not invent candidate experience.
+                - Do not invent job requirements.
                 - Do not include markdown.
                 - Do not include ```json.
                 - Return JSON only.
@@ -195,6 +241,8 @@ public class AIJobMatcher {
                         profile.getTargetRoles(),
                         profile.getExperienceHighlights(),
                         profile.getProjectHighlights(),
+                        profile.getPreferredLocations(),
+                        profile.getPreferredWorkModes(),
                         job.getTitle(),
                         job.getCompany(),
                         job.getLocation(),
@@ -228,6 +276,19 @@ public class AIJobMatcher {
                         output
                 );
 
+        normalizeScores(
+                evaluation
+        );
+
+        int finalScore =
+                calculateFinalScore(
+                        evaluation
+                );
+
+        evaluation.setFinalScore(
+                finalScore
+        );
+
         printEvaluation(
                 job,
                 analysis,
@@ -236,6 +297,88 @@ public class AIJobMatcher {
 
         return evaluation;
     }
+
+    // ==========================
+    // Weighted scoring
+    // ==========================
+
+    private int calculateFinalScore(
+            MatchEvaluation evaluation
+    ) {
+
+        double weightedScore =
+                evaluation.getSkillScore()
+                        * 0.40
+                        +
+                evaluation.getExperienceScore()
+                        * 0.25
+                        +
+                evaluation.getRoleFitScore()
+                        * 0.20
+                        +
+                evaluation.getPreferenceScore()
+                        * 0.15;
+
+        return (int) Math.round(
+                weightedScore
+        );
+    }
+
+    // ==========================
+    // Score safety
+    // ==========================
+
+    private void normalizeScores(
+            MatchEvaluation evaluation
+    ) {
+
+        evaluation.setOverallScore(
+                clampScore(
+                        evaluation.getOverallScore()
+                )
+        );
+
+        evaluation.setSkillScore(
+                clampScore(
+                        evaluation.getSkillScore()
+                )
+        );
+
+        evaluation.setExperienceScore(
+                clampScore(
+                        evaluation.getExperienceScore()
+                )
+        );
+
+        evaluation.setRoleFitScore(
+                clampScore(
+                        evaluation.getRoleFitScore()
+                )
+        );
+
+        evaluation.setPreferenceScore(
+                clampScore(
+                        evaluation.getPreferenceScore()
+                )
+        );
+    }
+
+    private int clampScore(
+            int score
+    ) {
+
+        return Math.max(
+                0,
+                Math.min(
+                        100,
+                        score
+                )
+        );
+    }
+
+    // ==========================
+    // Job analysis section
+    // ==========================
 
     private String buildAnalysisSection(
             JobAnalysis analysis
@@ -266,6 +409,10 @@ public class AIJobMatcher {
                         analysis.getSummary()
                 );
     }
+
+    // ==========================
+    // OpenAI response extraction
+    // ==========================
 
     private String extractOutputText(
             Response response
@@ -309,6 +456,10 @@ public class AIJobMatcher {
                 .trim();
     }
 
+    // ==========================
+    // JSON parsing
+    // ==========================
+
     private MatchEvaluation parseEvaluation(
             String output
     ) {
@@ -329,6 +480,10 @@ public class AIJobMatcher {
             );
         }
     }
+
+    // ==========================
+    // Logging
+    // ==========================
 
     private void printEvaluation(
             Job job,
@@ -363,23 +518,37 @@ public class AIJobMatcher {
         }
 
         System.out.println(
-                "Overall Score: "
+                "AI Overall Score: "
                         + evaluation.getOverallScore()
         );
 
         System.out.println(
                 "Skill Score: "
                         + evaluation.getSkillScore()
+                        + " (40%)"
         );
 
         System.out.println(
                 "Experience Score: "
                         + evaluation.getExperienceScore()
+                        + " (25%)"
         );
 
         System.out.println(
                 "Role Fit Score: "
                         + evaluation.getRoleFitScore()
+                        + " (20%)"
+        );
+
+        System.out.println(
+                "Preference Score: "
+                        + evaluation.getPreferenceScore()
+                        + " (15%)"
+        );
+
+        System.out.println(
+                "FINAL WEIGHTED SCORE: "
+                        + evaluation.getFinalScore()
         );
 
         System.out.println(

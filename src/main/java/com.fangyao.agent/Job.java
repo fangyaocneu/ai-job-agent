@@ -8,6 +8,14 @@ public class Job {
     private Integer matchScore;
     private String matchReason;
     private String matchGap;
+
+    // Phase 6 personalized scoring
+    private Integer skillScore;
+    private Integer experienceScore;
+    private Integer roleFitScore;
+    private Integer preferenceScore;
+    private Integer finalScore;
+
     private Integer id;
 
     private String externalId;
@@ -17,9 +25,11 @@ public class Job {
     private String url;
     private LocalDateTime publishedAt;
     private String description;
+
     private boolean favorite;
     private boolean applied;
     private boolean ignored;
+
     private String applicationStage;
     private String notes;
     private LocalDate appliedAt;
@@ -47,6 +57,46 @@ public class Job {
 
     public void setMatchGap(String matchGap) {
         this.matchGap = matchGap;
+    }
+
+    public Integer getSkillScore() {
+        return skillScore;
+    }
+
+    public void setSkillScore(Integer skillScore) {
+        this.skillScore = skillScore;
+    }
+
+    public Integer getExperienceScore() {
+        return experienceScore;
+    }
+
+    public void setExperienceScore(Integer experienceScore) {
+        this.experienceScore = experienceScore;
+    }
+
+    public Integer getRoleFitScore() {
+        return roleFitScore;
+    }
+
+    public void setRoleFitScore(Integer roleFitScore) {
+        this.roleFitScore = roleFitScore;
+    }
+
+    public Integer getPreferenceScore() {
+        return preferenceScore;
+    }
+
+    public void setPreferenceScore(Integer preferenceScore) {
+        this.preferenceScore = preferenceScore;
+    }
+
+    public Integer getFinalScore() {
+        return finalScore;
+    }
+
+    public void setFinalScore(Integer finalScore) {
+        this.finalScore = finalScore;
     }
 
     public Job(

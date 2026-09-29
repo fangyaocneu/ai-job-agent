@@ -17,6 +17,9 @@ public class JobAgentResult {
     private Integer experienceScore;
     private Integer roleFitScore;
 
+    private Integer preferenceScore;
+    private Integer finalScore;
+
     private String strengths;
     private String missingSkills;
 
@@ -113,6 +116,22 @@ public class JobAgentResult {
 
     public void setRoleFitScore(Integer roleFitScore) {
         this.roleFitScore = roleFitScore;
+    }
+
+    public Integer getPreferenceScore() {
+        return preferenceScore;
+    }
+
+    public void setPreferenceScore(Integer preferenceScore) {
+        this.preferenceScore = preferenceScore;
+    }
+
+    public Integer getFinalScore() {
+        return finalScore;
+    }
+
+    public void setFinalScore(Integer finalScore) {
+        this.finalScore = finalScore;
     }
 
     public String getStrengths() {
