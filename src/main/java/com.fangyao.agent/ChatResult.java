@@ -2,12 +2,12 @@ package com.fangyao.agent;
 
 import java.util.List;
 
-public class ChatResponse {
+public class ChatResult {
 
     private final String response;
     private final List<AgentTrace> toolsUsed;
 
-    public ChatResponse(
+    public ChatResult(
             String response,
             List<AgentTrace> toolsUsed
     ) {

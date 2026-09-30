@@ -23,6 +23,10 @@ public class ChatService {
     private final CandidateProfileRepository profileRepository;
     private final ChatToolService chatToolService;
     private final ChatMessageRepository chatMessageRepository;
+    private final ResumeRagService resumeRagService;
+    private final ResumeGapService resumeGapService;
+    private final ConversationTitleService conversationTitleService;
+    private final ChatConversationRepository conversationRepository;
 
     // =========================
     // Constructor
@@ -40,6 +44,18 @@ public class ChatService {
 
         this.chatMessageRepository
                 = new ChatMessageRepository();
+
+        this.resumeRagService
+                = new ResumeRagService();
+
+        this.resumeGapService
+                = new ResumeGapService();
+
+        this.conversationTitleService
+                = new ConversationTitleService();
+
+        this.conversationRepository
+                = new ChatConversationRepository();
     }
 
     // =========================
@@ -116,10 +132,25 @@ public class ChatService {
 
         @JsonPropertyDescription(
                 """
-                Optional scope for the follow-up request.
-                Use "due" when the user is asking about follow-ups
-                that currently need attention.
-                """
+        Scope of follow-ups requested by the user.
+
+        Allowed values:
+
+        due
+        - follow-ups due today or overdue
+
+        overdue
+        - follow-ups with a date before today
+
+        today
+        - follow-ups scheduled exactly for today
+
+        all
+        - all applications that have a follow-up date
+
+        Choose the value that most closely matches the user's wording.
+        If the user does not specify a scope, use "due".
+        """
         )
         public String scope;
 
@@ -195,11 +226,89 @@ public class ChatService {
         public GetCandidateProfile() {
         }
     }
+    // =========================
+// Tool 6: Search Resume
+// =========================
+
+    @JsonClassDescription(
+            """
+        Searches the candidate's uploaded resume using semantic retrieval.
+
+        Use this tool when the user asks about resume-specific
+        experience, projects, technologies, achievements,
+        education, or evidence from their resume.
+
+        This tool retrieves only the most relevant resume sections
+        instead of returning the full resume.
+        """
+    )
+    public static class SearchResume {
+
+        @JsonPropertyDescription(
+                """
+            Natural-language search query describing the resume
+            information needed.
+
+            Examples:
+            backend experience
+            AWS cloud experience
+            Java projects
+            testing achievements
+            education
+            """
+        )
+        public String query;
+
+        @JsonPropertyDescription(
+                """
+            Maximum number of relevant resume chunks to retrieve.
+
+            Use 3 by default.
+            """
+        )
+        public Integer limit;
+
+        public SearchResume() {
+        }
+    }
+    // =========================
+// Tool 7: Analyze Resume Gap
+// =========================
+
+    @JsonClassDescription(
+            """
+        Analyzes the candidate's uploaded resume against a job description.
+
+        Use this tool when the user asks:
+        - whether they are qualified for a job
+        - what skills they are missing
+        - what resume gaps they have
+        - how their resume compares with a job description
+        - what they should improve before applying
+
+        The analysis uses semantic resume retrieval and returns
+        matched skills, partial matches, missing skills,
+        evidence, gap severity, and improvement recommendations.
+        """
+    )
+    public static class AnalyzeResumeGap {
+
+        @JsonPropertyDescription(
+                """
+            The complete or relevant job description that should
+            be compared against the candidate's resume.
+            """
+        )
+        public String jobDescription;
+
+        public AnalyzeResumeGap() {
+        }
+    }
 
     // =========================
     // Main Chat
     // =========================
-    public String chat(
+    public ChatResult chat(
             long conversationId,
             String message
     ) {
@@ -210,6 +319,45 @@ public class ChatService {
             throw new IllegalArgumentException(
                     "Chat message cannot be empty."
             );
+        }
+
+        // =========================
+        // Auto Generate Conversation Title
+        // =========================
+        String currentTitle
+                = conversationRepository.getTitle(
+                        conversationId
+                );
+
+        if (currentTitle == null
+                || currentTitle.isBlank()
+                || currentTitle.equalsIgnoreCase("New Chat")
+                || currentTitle.equalsIgnoreCase("New Conversation")) {
+
+            try {
+
+                String generatedTitle
+                        = conversationTitleService.generateTitle(
+                                message
+                        );
+
+                conversationRepository.updateTitle(
+                        conversationId,
+                        generatedTitle
+                );
+
+                System.out.println(
+                        "[CONVERSATION TITLE] "
+                        + generatedTitle
+                );
+
+            } catch (Exception e) {
+
+                System.err.println(
+                        "[CONVERSATION TITLE ERROR] "
+                        + e.getMessage()
+                );
+            }
         }
 
         // =========================
@@ -315,10 +463,14 @@ public class ChatService {
                 - When recommending current jobs,
                   use the top matches tool.
 
-                - When the user asks about applications
-                  that need attention, overdue follow-ups,
-                  follow-ups due today, or what to follow up on next,
-                  use the follow-ups tool.
+                - When the user asks about application follow-ups,
+                use the follow-ups tool.
+
+                - Map follow-up requests to scope values:
+                "overdue" -> overdue
+                "due today" / "today" -> today
+                "all follow-ups" / "scheduled follow-ups" -> all
+                "due" / "need attention" / "what should I follow up on" -> due
 
                 - When the user asks which jobs they have applied to,
                   what applications they are tracking,
@@ -341,6 +493,17 @@ public class ChatService {
                   from your interpretation of that data.
 
                 - Answer clearly and concisely.
+                - When the user asks whether their resume fits a job,
+                what skills they are missing,
+                what gaps exist between their resume and a job description,
+                or how they should improve for a specific job,
+                use the resume gap analysis tool.
+
+                - When a full job description is provided for comparison,
+                prefer the resume gap analysis tool over the general resume search tool.
+
+                - Do not claim the candidate has a required skill unless
+                the resume evidence supports it.
                 """
                 .formatted(
                         profileContext,
@@ -352,6 +515,8 @@ public class ChatService {
         // Conversation Input
         // =========================
         List<ResponseInputItem> inputs
+                = new ArrayList<>();
+        List<AgentTrace> toolTraces
                 = new ArrayList<>();
 
         inputs.add(
@@ -392,6 +557,12 @@ public class ChatService {
                         .addTool(
                                 GetCandidateProfile.class
                         )
+                        .addTool(
+                                SearchResume.class
+                        )
+                        .addTool(
+                                AnalyzeResumeGap.class
+                        )
                         .input(
                                 ResponseCreateParams.Input
                                         .ofResponse(
@@ -431,8 +602,8 @@ public class ChatService {
                     = false;
 
             // =========================
-            // Execute Tool Calls
-            // =========================
+// Execute Tool Calls
+// =========================
             for (var item
                     : response.output()) {
 
@@ -465,10 +636,44 @@ public class ChatService {
                                 )
                 );
 
-                Object toolResult
-                        = executeTool(
-                                functionCall
-                        );
+                Object toolResult;
+
+                try {
+
+                    toolResult
+                            = executeTool(
+                                    functionCall
+                            );
+
+                } catch (Exception e) {
+
+                    System.err.println(
+                            "[AI TOOL ERROR] "
+                            + functionCall.name()
+                    );
+
+                    System.err.println(
+                            "[AI TOOL ERROR MESSAGE] "
+                            + e.getMessage()
+                    );
+
+                    e.printStackTrace();
+
+                    toolResult
+                            = """
+                Tool execution failed.
+
+                Tool: %s
+
+                The requested data could not be retrieved right now.
+
+                Do not invent replacement data.
+                Explain the limitation clearly to the user.
+                """
+                                    .formatted(
+                                            functionCall.name()
+                                    );
+                }
 
                 System.out.println(
                         "[AI TOOL RESULT]"
@@ -476,6 +681,13 @@ public class ChatService {
 
                 System.out.println(
                         toolResult
+                );
+                toolTraces.add(
+                        new AgentTrace(
+                                functionCall.name(),
+                                functionCall.arguments().toString(),
+                                String.valueOf(toolResult)
+                        )
                 );
 
                 // Return result to model
@@ -495,9 +707,9 @@ public class ChatService {
                 );
             }
 
-            // =========================
-            // Final Answer
-            // =========================
+// =========================
+// Final Answer
+// =========================
             if (!toolWasCalledThisRound) {
 
                 System.out.println(
@@ -526,21 +738,21 @@ public class ChatService {
                         finalAnswer
                 );
 
-                return finalAnswer;
+                return new ChatResult(
+                        finalAnswer,
+                        toolTraces
+                );
             }
         }
 
-        // =========================
-        // Safety Limit
-        // =========================
+// =========================
+// Safety Limit
+// =========================
         throw new IllegalStateException(
                 "AI exceeded maximum tool reasoning rounds."
         );
     }
 
-    // =========================
-    // Tool Executor
-    // =========================
     private Object executeTool(
             ResponseFunctionToolCall functionCall
     ) {
@@ -576,7 +788,6 @@ public class ChatService {
                 requestedLimit
                 );
             }
-
             // =========================
             // Tool 2: Job Insights
             // =========================
@@ -605,8 +816,7 @@ public class ChatService {
 
                 yield chatToolService
                 .getJobInsights(
-                arguments.jobId
-                .intValue()
+                arguments.jobId.intValue()
                 );
             }
 
@@ -635,7 +845,9 @@ public class ChatService {
                 );
 
                 yield chatToolService
-                .getFollowUps();
+                .getFollowUps(
+                scope
+                );
             }
 
             // =========================
@@ -663,7 +875,9 @@ public class ChatService {
                 );
 
                 yield chatToolService
-                .getApplications();
+                .getApplications(
+                stage
+                );
             }
 
             // =========================
@@ -678,7 +892,7 @@ public class ChatService {
 
                 String section
                         = arguments.section == null
-                                ? "all"
+                                ? "ALL"
                                 : arguments.section;
 
                 System.out.println(
@@ -691,7 +905,145 @@ public class ChatService {
                 );
 
                 yield chatToolService
-                .getCandidateProfile();
+                .getCandidateProfile(
+                section
+                );
+            }
+
+            // =========================
+            // Tool 6: Search Resume
+            // =========================
+            case "SearchResume" -> {
+
+                SearchResume arguments
+                        = functionCall.arguments(
+                                SearchResume.class
+                        );
+
+                if (arguments.query == null
+                        || arguments.query.isBlank()) {
+
+                    throw new IllegalArgumentException(
+                            "SearchResume requires a query."
+                    );
+                }
+
+                int requestedLimit
+                        = arguments.limit == null
+                                ? 3
+                                : arguments.limit;
+
+                System.out.println(
+                        "[AI TOOL EXECUTOR] Running searchResume()"
+                );
+
+                System.out.println(
+                        "[AI TOOL ARGUMENT] query = "
+                        + arguments.query
+                );
+
+                System.out.println(
+                        "[AI TOOL ARGUMENT] limit = "
+                        + requestedLimit
+                );
+
+                List<ResumeChunkMatch> chunks
+                        = resumeRagService
+                                .retrieveRelevantChunks(
+                                        arguments.query,
+                                        requestedLimit
+                                );
+
+                if (chunks.isEmpty()) {
+
+                    yield "No relevant resume information was found.";
+                }
+
+                StringBuilder result
+                        = new StringBuilder();
+
+                result.append(
+                        "Relevant resume evidence:\n\n"
+                );
+
+                for (int i = 0;
+                        i < chunks.size();
+                        i++) {
+
+                    ResumeChunkMatch chunk
+                            = chunks.get(i);
+
+                    result.append(
+                            "--- Resume Chunk "
+                            + (i + 1)
+                            + " ---\n"
+                    );
+
+                    result.append(
+                            "Resume ID: "
+                            + chunk.getResumeId()
+                            + "\n"
+                    );
+
+                    result.append(
+                            "Chunk Index: "
+                            + chunk.getChunkIndex()
+                            + "\n"
+                    );
+
+                    result.append(
+                            "Similarity: "
+                            + String.format(
+                                    "%.4f",
+                                    chunk.getSimilarity()
+                            )
+                            + "\n\n"
+                    );
+
+                    result.append(
+                            chunk.getContent()
+                    );
+
+                    result.append(
+                            "\n\n"
+                    );
+                }
+
+                yield result.toString();
+            }
+            // =========================
+// Tool 7: Analyze Resume Gap
+// =========================
+            case "AnalyzeResumeGap" -> {
+
+                AnalyzeResumeGap arguments
+                        = functionCall.arguments(
+                                AnalyzeResumeGap.class
+                        );
+
+                if (arguments.jobDescription == null
+                        || arguments.jobDescription.isBlank()) {
+
+                    throw new IllegalArgumentException(
+                            "AnalyzeResumeGap requires a job description."
+                    );
+                }
+
+                System.out.println(
+                        "[AI TOOL EXECUTOR] Running analyzeResumeGap()"
+                );
+
+                System.out.println(
+                        "[AI TOOL ARGUMENT] jobDescription length = "
+                        + arguments.jobDescription.length()
+                );
+
+                ResumeGapService.GapAnalysis analysis
+                        = resumeGapService.analyze(
+                                arguments.jobDescription
+                        );
+
+                yield analysis.getAnalysis();
             }
 
             // =========================

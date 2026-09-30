@@ -226,48 +226,152 @@ public class ChatConversationRepository {
 
         return messages;
     }
-    public void delete(
-        long conversationId
-) {
 
-    String sql = """
+    public boolean exists(
+            long conversationId
+    ) {
+
+        String sql = """
+            SELECT 1
+            FROM chat_conversations
+            WHERE id = ?
+            LIMIT 1
+            """;
+
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
+
+            statement.setLong(
+                    1,
+                    conversationId
+            );
+
+            try (
+                    ResultSet resultSet
+                    = statement.executeQuery()) {
+
+                return resultSet.next();
+            }
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Failed to check conversation existence.",
+                    e
+            );
+        }
+    }
+
+    public void updateTitle(
+            long conversationId,
+            String title
+    ) {
+
+        String sql = """
+            UPDATE chat_conversations
+            SET title = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """;
+
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
+
+            statement.setString(
+                    1,
+                    title
+            );
+
+            statement.setLong(
+                    2,
+                    conversationId
+            );
+
+            statement.executeUpdate();
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Failed to update conversation title.",
+                    e
+            );
+        }
+    }
+
+    public String getTitle(
+            long conversationId
+    ) {
+
+        String sql = """
+            SELECT title
+            FROM chat_conversations
+            WHERE id = ?
+            """;
+
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
+
+            statement.setLong(
+                    1,
+                    conversationId
+            );
+
+            try (
+                    ResultSet resultSet
+                    = statement.executeQuery()) {
+
+                if (resultSet.next()) {
+
+                    return resultSet.getString(
+                            "title"
+                    );
+                }
+
+                return null;
+            }
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Failed to load conversation title.",
+                    e
+            );
+        }
+    }
+
+    public void delete(
+            long conversationId
+    ) {
+
+        String sql = """
             DELETE FROM chat_conversations
             WHERE id = ?
             """;
 
-    try (
-            Connection connection =
-                    DatabaseConfig.getConnection();
+        try (
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
 
-            PreparedStatement statement =
-                    connection.prepareStatement(sql)
-    ) {
+            statement.setLong(
+                    1,
+                    conversationId
+            );
 
-        statement.setLong(
-                1,
-                conversationId
-        );
+            statement.executeUpdate();
 
-        statement.executeUpdate();
+        } catch (Exception e) {
 
-    } catch (
-            Exception e
-    ) {
-
-        throw new RuntimeException(
-                "Failed to delete conversation.",
-                e
-        );
+            throw new RuntimeException(
+                    "Failed to delete conversation.",
+                    e
+            );
+        }
     }
 }
-}
-
-
-                 
-                  
-                  
-                 
-                  
-                 
-                     
-                 
