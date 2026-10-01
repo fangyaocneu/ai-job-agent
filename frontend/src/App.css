@@ -2312,3 +2312,74 @@ a {
   font-size: 11px;
   color: #9ca3af;
 }
+
+@media (max-width: 800px) {
+  .career-chat-page {
+    height: auto;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+
+  .career-chat-header {
+    padding: 16px;
+  }
+
+  .career-chat-title-row h1 {
+    font-size: 20px;
+  }
+
+  .career-chat-title-row p {
+    font-size: 12px;
+  }
+
+  .career-chat-layout {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+    gap: 0;
+  }
+
+  .career-conversation-sidebar {
+    width: 100%;
+    max-height: 220px;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid #e5eaf1;
+  }
+
+  .career-chat-shell {
+    width: 100%;
+    min-width: 0;
+    min-height: 600px;
+  }
+
+  .career-chat-messages {
+    padding: 20px 14px;
+  }
+
+  .career-message-row {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .career-message-bubble {
+    max-width: 90%;
+  }
+
+  .career-message-bubble.assistant {
+    width: auto;
+    max-width: 90%;
+  }
+
+  .career-message-bubble.user {
+    max-width: 85%;
+  }
+
+  .career-chat-composer {
+    padding: 12px;
+  }
+
+  .career-chat-input-wrapper {
+    max-width: 100%;
+  }
+}

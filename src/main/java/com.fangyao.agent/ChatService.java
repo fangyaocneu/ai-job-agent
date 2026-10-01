@@ -1,8 +1,12 @@
 package com.fangyao.agent;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
@@ -10,11 +14,6 @@ import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseFunctionToolCall;
 import com.openai.models.responses.ResponseInputItem;
-
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 public class ChatService {
@@ -27,6 +26,7 @@ public class ChatService {
     private final ResumeGapService resumeGapService;
     private final ConversationTitleService conversationTitleService;
     private final ChatConversationRepository conversationRepository;
+    private final JevIntentRouter jevIntentRouter;
 
     // =========================
     // Constructor
@@ -56,6 +56,8 @@ public class ChatService {
 
         this.conversationRepository
                 = new ChatConversationRepository();
+        this.jevIntentRouter
+                = new JevIntentRouter();
     }
 
     // =========================
@@ -306,8 +308,8 @@ public class ChatService {
     }
 
     // =========================
-    // Main Chat
-    // =========================
+// Main Chat
+// =========================
     public ChatResult chat(
             long conversationId,
             String message
@@ -321,6 +323,39 @@ public class ChatService {
             );
         }
 
+        // =========================
+        // Jev Intent Routing
+        // =========================
+        AgentIntent intent;
+        boolean jevRoutingSucceeded = true;
+
+        try {
+
+            intent
+                    = jevIntentRouter.route(
+                            message
+                    );
+
+            System.out.println(
+                    "[JEV INTENT] "
+                    + intent
+            );
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "[JEV ROUTE FAILED] "
+                    + e.getMessage()
+            );
+
+            intent
+                    = AgentIntent.GENERAL;
+
+            jevRoutingSucceeded
+                    = false;
+        }
+
+        // 下面接你原本的 chat logic
         // =========================
         // Auto Generate Conversation Title
         // =========================
@@ -516,8 +551,33 @@ public class ChatService {
         // =========================
         List<ResponseInputItem> inputs
                 = new ArrayList<>();
+
         List<AgentTrace> toolTraces
                 = new ArrayList<>();
+
+// =========================
+// Jev Routing Trace
+// =========================
+        if (jevRoutingSucceeded) {
+
+            toolTraces.add(
+                    new AgentTrace(
+                            "JevRouter",
+                            "{}",
+                            "Intent: " + intent.name()
+                    )
+            );
+
+        } else {
+
+            toolTraces.add(
+                    new AgentTrace(
+                            "JevRouter",
+                            "{}",
+                            "Routing failed - fallback to all tools"
+                    )
+            );
+        }
 
         inputs.add(
                 ResponseInputItem.ofMessage(
@@ -732,11 +792,29 @@ public class ChatService {
                         message
                 );
 
-                chatMessageRepository.save(
-                        conversationId,
-                        "assistant",
-                        finalAnswer
-                );
+                long assistantMessageId
+                        = chatMessageRepository.save(
+                                conversationId,
+                                "assistant",
+                                finalAnswer
+                        );
+                AgentToolCallRepository agentToolCallRepository
+                        = new AgentToolCallRepository();
+
+                for (AgentTrace trace : toolTraces) {
+
+                    AgentToolCall toolCall
+                            = new AgentToolCall(
+                                    assistantMessageId,
+                                    trace.getToolName(),
+                                    trace.getArguments(),
+                                    trace.getResult()
+                            );
+
+                    agentToolCallRepository.save(
+                            toolCall
+                    );
+                }
 
                 return new ChatResult(
                         finalAnswer,

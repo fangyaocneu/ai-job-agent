@@ -1,6 +1,8 @@
 package com.fangyao.agent;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ChatMessage {
 
@@ -9,6 +11,8 @@ public class ChatMessage {
     private String role;
     private String content;
     private LocalDateTime createdAt;
+
+    private List<AgentTrace> toolsUsed = new ArrayList<>();
 
     public ChatMessage() {
     }
@@ -19,14 +23,14 @@ public class ChatMessage {
             String content
     ) {
 
-        this.conversationId =
-                conversationId;
+        this.conversationId
+                = conversationId;
 
-        this.role =
-                role;
+        this.role
+                = role;
 
-        this.content =
-                content;
+        this.content
+                = content;
     }
 
     public long getId() {
@@ -36,8 +40,8 @@ public class ChatMessage {
     public void setId(
             long id
     ) {
-        this.id =
-                id;
+        this.id
+                = id;
     }
 
     public long getConversationId() {
@@ -47,8 +51,8 @@ public class ChatMessage {
     public void setConversationId(
             long conversationId
     ) {
-        this.conversationId =
-                conversationId;
+        this.conversationId
+                = conversationId;
     }
 
     public String getRole() {
@@ -58,8 +62,8 @@ public class ChatMessage {
     public void setRole(
             String role
     ) {
-        this.role =
-                role;
+        this.role
+                = role;
     }
 
     public String getContent() {
@@ -69,8 +73,8 @@ public class ChatMessage {
     public void setContent(
             String content
     ) {
-        this.content =
-                content;
+        this.content
+                = content;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -80,7 +84,18 @@ public class ChatMessage {
     public void setCreatedAt(
             LocalDateTime createdAt
     ) {
-        this.createdAt =
-                createdAt;
+        this.createdAt
+                = createdAt;
+    }
+
+    public List<AgentTrace> getToolsUsed() {
+        return toolsUsed;
+    }
+
+    public void setToolsUsed(
+            List<AgentTrace> toolsUsed
+    ) {
+        this.toolsUsed
+                = toolsUsed;
     }
 }

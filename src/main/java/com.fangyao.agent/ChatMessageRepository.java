@@ -3,39 +3,41 @@ package com.fangyao.agent;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class ChatMessageRepository {
 
+    private final AgentToolCallRepository agentToolCallRepository
+            = new AgentToolCallRepository();
+
     // =========================
     // Save Message
     // =========================
-
-    public void save(
+    public long save(
             long conversationId,
             String role,
             String content
     ) {
 
         String sql = """
-                INSERT INTO chat_messages (
-                    conversation_id,
-                    role,
-                    content
-                )
-                VALUES (?, ?, ?)
-                """;
+            INSERT INTO chat_messages (
+                conversation_id,
+                role,
+                content
+            )
+            VALUES (?, ?, ?)
+            """;
 
         try (
-                Connection connection =
-                        DatabaseConfig.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(
+                        sql,
+                        Statement.RETURN_GENERATED_KEYS
+                )) {
 
             statement.setLong(
                     1,
@@ -54,9 +56,21 @@ public class ChatMessageRepository {
 
             statement.executeUpdate();
 
-        } catch (
-                Exception e
-        ) {
+            try (
+                    ResultSet generatedKeys
+                    = statement.getGeneratedKeys()) {
+
+                if (generatedKeys.next()) {
+
+                    return generatedKeys.getLong(1);
+                }
+            }
+
+            throw new RuntimeException(
+                    "Chat message saved but no ID was returned."
+            );
+
+        } catch (Exception e) {
 
             throw new RuntimeException(
                     "Failed to save chat message.",
@@ -69,7 +83,6 @@ public class ChatMessageRepository {
     // Load Recent Messages
     // Used by AI memory
     // =========================
-
     public List<ChatMessage> getRecentMessages(
             long conversationId,
             int limit
@@ -88,16 +101,13 @@ public class ChatMessageRepository {
                 LIMIT ?
                 """;
 
-        List<ChatMessage> messages =
-                new ArrayList<>();
+        List<ChatMessage> messages
+                = new ArrayList<>();
 
         try (
-                Connection connection =
-                        DatabaseConfig.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
 
             statement.setLong(
                     1,
@@ -110,13 +120,10 @@ public class ChatMessageRepository {
             );
 
             try (
-                    ResultSet resultSet =
-                            statement.executeQuery()
-            ) {
+                    ResultSet resultSet
+                    = statement.executeQuery()) {
 
-                while (
-                        resultSet.next()
-                ) {
+                while (resultSet.next()) {
 
                     messages.add(
                             mapMessage(
@@ -126,9 +133,7 @@ public class ChatMessageRepository {
                 }
             }
 
-        } catch (
-                Exception e
-        ) {
+        } catch (Exception e) {
 
             throw new RuntimeException(
                     "Failed to load recent chat messages.",
@@ -138,7 +143,6 @@ public class ChatMessageRepository {
 
         // SQL returns newest -> oldest.
         // LLM should receive oldest -> newest.
-
         Collections.reverse(
                 messages
         );
@@ -150,7 +154,6 @@ public class ChatMessageRepository {
     // Load Full Conversation
     // Used by frontend
     // =========================
-
     public List<ChatMessage> getMessagesByConversation(
             long conversationId
     ) {
@@ -167,16 +170,13 @@ public class ChatMessageRepository {
                 ORDER BY created_at ASC, id ASC
                 """;
 
-        List<ChatMessage> messages =
-                new ArrayList<>();
+        List<ChatMessage> messages
+                = new ArrayList<>();
 
         try (
-                Connection connection =
-                        DatabaseConfig.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+                Connection connection
+                = DatabaseConfig.getConnection(); PreparedStatement statement
+                = connection.prepareStatement(sql)) {
 
             statement.setLong(
                     1,
@@ -184,25 +184,46 @@ public class ChatMessageRepository {
             );
 
             try (
-                    ResultSet resultSet =
-                            statement.executeQuery()
-            ) {
+                    ResultSet resultSet
+                    = statement.executeQuery()) {
 
-                while (
-                        resultSet.next()
-                ) {
+                while (resultSet.next()) {
+
+                    ChatMessage message
+                            = mapMessage(
+                                    resultSet
+                            );
+
+                    List<AgentToolCall> toolCalls
+                            = agentToolCallRepository.findByMessageId(
+                                    message.getId()
+                            );
+
+                    List<AgentTrace> traces
+                            = new ArrayList<>();
+
+                    for (AgentToolCall toolCall : toolCalls) {
+
+                        traces.add(
+                                new AgentTrace(
+                                        toolCall.getToolName(),
+                                        toolCall.getArguments(),
+                                        toolCall.getResult()
+                                )
+                        );
+                    }
+
+                    message.setToolsUsed(
+                            traces
+                    );
 
                     messages.add(
-                            mapMessage(
-                                    resultSet
-                            )
+                            message
                     );
                 }
             }
 
-        } catch (
-                Exception e
-        ) {
+        } catch (Exception e) {
 
             throw new RuntimeException(
                     "Failed to load conversation messages.",
@@ -216,13 +237,12 @@ public class ChatMessageRepository {
     // =========================
     // Mapper
     // =========================
-
     private ChatMessage mapMessage(
             ResultSet resultSet
     ) throws Exception {
 
-        ChatMessage message =
-                new ChatMessage();
+        ChatMessage message
+                = new ChatMessage();
 
         message.setId(
                 resultSet.getLong(

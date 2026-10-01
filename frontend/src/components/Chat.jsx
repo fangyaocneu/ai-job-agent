@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+
 import ReactMarkdown from "react-markdown";
+
+
 
 function parseToolArguments(argumentsText) {
 
@@ -13,6 +16,7 @@ function parseToolArguments(argumentsText) {
     return {};
   }
 }
+
 
 function parseResumeEvidence(resultText) {
 
@@ -32,22 +36,18 @@ function parseResumeEvidence(resultText) {
   ) {
 
     matches.push({
-      rank:
-        Number(match[1]),
-
-      resumeId:
-        Number(match[2]),
-
-      chunkIndex:
-        Number(match[3]),
-
-      similarity:
-        Number(match[4])
+      rank: Number(match[1]),
+      resumeId: Number(match[2]),
+      chunkIndex: Number(match[3]),
+      similarity: Number(match[4])
     });
+
   }
 
   return matches;
 }
+
+
 
 function Chat() {
 
@@ -57,6 +57,8 @@ function Chat() {
       "Hi, I’m your AI Career Assistant. I can help you evaluate roles, understand your profile, and improve your job-search strategy.",
     toolsUsed: []
   };
+
+
 
   const [messages, setMessages] =
     useState([welcomeMessage]);
@@ -75,6 +77,12 @@ function Chat() {
   const [sending, setSending] =
     useState(false);
 
+  const [uploadingResume, setUploadingResume] =
+    useState(false);
+
+  const [resumeUploadMessage, setResumeUploadMessage] =
+    useState("");
+
   const [
     loadingConversations,
     setLoadingConversations
@@ -83,27 +91,29 @@ function Chat() {
   const bottomRef =
     useRef(null);
 
+
+
   // =========================
   // Initial Load
   // =========================
 
   useEffect(() => {
-
     loadConversations();
-
   }, []);
+
+
 
   // =========================
   // Auto Scroll
   // =========================
 
   useEffect(() => {
-
     bottomRef.current?.scrollIntoView({
       behavior: "smooth"
     });
-
   }, [messages, sending]);
+
+
 
   // =========================
   // Load Conversation Messages
@@ -120,7 +130,6 @@ function Chat() {
           );
 
         if (!response.ok) {
-
           throw new Error(
             `HTTP ${response.status}`
           );
@@ -139,10 +148,10 @@ function Chat() {
               (message) => ({
                 role: message.role,
                 content: message.content,
-
-                // Tool traces are currently
-                // returned only with new chat responses.
-                toolsUsed: []
+                toolsUsed:
+                  Array.isArray(message.toolsUsed)
+                    ? message.toolsUsed
+                    : []
               })
             )
           );
@@ -152,6 +161,7 @@ function Chat() {
           setMessages([
             welcomeMessage
           ]);
+
         }
 
       } catch (error) {
@@ -169,8 +179,12 @@ function Chat() {
             toolsUsed: []
           }
         ]);
+
       }
+
     };
+
+
 
   // =========================
   // Load Conversations
@@ -191,7 +205,6 @@ function Chat() {
           );
 
         if (!response.ok) {
-
           throw new Error(
             `HTTP ${response.status}`
           );
@@ -224,6 +237,7 @@ function Chat() {
             setMessages([
               welcomeMessage
             ]);
+
           }
 
           return;
@@ -243,6 +257,7 @@ function Chat() {
           await loadConversationMessages(
             firstConversationId
           );
+
         }
 
       } catch (error) {
@@ -257,8 +272,12 @@ function Chat() {
         setLoadingConversations(
           false
         );
+
       }
+
     };
+
+
 
   // =========================
   // Create Conversation
@@ -288,7 +307,6 @@ function Chat() {
           );
 
         if (!response.ok) {
-
           throw new Error(
             `HTTP ${response.status}`
           );
@@ -320,8 +338,12 @@ function Chat() {
           "Failed to create conversation:",
           error
         );
+
       }
+
     };
+
+
 
   // =========================
   // Select Conversation
@@ -334,7 +356,6 @@ function Chat() {
         conversationId ===
         activeConversationId
       ) {
-
         return;
       }
 
@@ -347,7 +368,10 @@ function Chat() {
       await loadConversationMessages(
         conversationId
       );
+
     };
+
+
 
   // =========================
   // Delete Conversation
@@ -362,7 +386,6 @@ function Chat() {
         );
 
       if (!confirmed) {
-
         return;
       }
 
@@ -377,7 +400,6 @@ function Chat() {
           );
 
         if (!response.ok) {
-
           throw new Error(
             `HTTP ${response.status}`
           );
@@ -423,7 +445,9 @@ function Chat() {
             setMessages([
               welcomeMessage
             ]);
+
           }
+
         }
 
       } catch (error) {
@@ -436,8 +460,12 @@ function Chat() {
         alert(
           "Could not delete conversation."
         );
+
       }
+
     };
+
+
 
   // =========================
   // Send Message
@@ -454,7 +482,6 @@ function Chat() {
         sending ||
         activeConversationId === null
       ) {
-
         return;
       }
 
@@ -499,7 +526,6 @@ function Chat() {
           );
 
         if (!response.ok) {
-
           throw new Error(
             `HTTP ${response.status}`
           );
@@ -572,8 +598,151 @@ function Chat() {
         setSending(
           false
         );
+
       }
+
     };
+
+
+
+  // =========================
+  // Resume Upload
+  // =========================
+
+  const uploadResume =
+    async (event) => {
+
+      const file =
+        event.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      if (
+        file.type !== "application/pdf" &&
+        !file.name
+          .toLowerCase()
+          .endsWith(".pdf")
+      ) {
+
+        setResumeUploadMessage(
+          "Please select a PDF file."
+        );
+
+        event.target.value = "";
+
+        return;
+      }
+
+      try {
+
+        setUploadingResume(
+          true
+        );
+
+        setResumeUploadMessage(
+          `Uploading ${file.name}...`
+        );
+
+        const formData =
+          new FormData();
+
+        formData.append(
+          "file",
+          file
+        );
+
+        const response =
+          await fetch(
+            "/api/resume/upload",
+            {
+              method: "POST",
+              body: formData
+            }
+          );
+
+        if (!response.ok) {
+
+          let errorMessage =
+            `HTTP ${response.status}`;
+
+          try {
+
+            const errorText =
+              await response.text();
+
+            if (errorText) {
+              errorMessage =
+                `${errorMessage}: ${errorText}`;
+            }
+
+          } catch {
+            // Ignore response-body parsing failure.
+          }
+
+          throw new Error(
+            errorMessage
+          );
+
+        }
+
+        const contentType =
+          response.headers.get(
+            "content-type"
+          ) || "";
+
+        let data = null;
+
+        if (
+          contentType.includes(
+            "application/json"
+          )
+        ) {
+
+          data =
+            await response.json();
+
+        } else {
+
+          data =
+            await response.text();
+
+        }
+
+        console.log(
+          "Resume upload response:",
+          data
+        );
+
+        setResumeUploadMessage(
+          `Resume uploaded successfully · ${file.name}`
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Resume upload failed:",
+          error
+        );
+
+        setResumeUploadMessage(
+          "Resume upload failed. Please try again."
+        );
+
+      } finally {
+
+        setUploadingResume(
+          false
+        );
+
+        event.target.value = "";
+
+      }
+
+    };
+
+
 
   // =========================
   // Keyboard
@@ -590,8 +759,12 @@ function Chat() {
         event.preventDefault();
 
         sendMessage();
+
       }
+
     };
+
+
 
   // =========================
   // UI
@@ -629,33 +802,19 @@ function Chat() {
 
       </div>
 
+
+
       {/* ========================= */}
       {/* Main Layout */}
       {/* ========================= */}
 
-      <div
-        style={{
-          display: "flex",
-          height:
-            "calc(100vh - 150px)",
-          gap: "16px"
-        }}
-      >
+      <div className="career-chat-layout">
 
         {/* ========================= */}
         {/* Conversation Sidebar */}
         {/* ========================= */}
 
-        <div
-          style={{
-            width: "260px",
-            borderRight:
-              "1px solid #e5e7eb",
-            padding: "12px",
-            overflowY: "auto",
-            flexShrink: 0
-          }}
-        >
+        <div className="career-conversation-sidebar">
 
           <button
             type="button"
@@ -677,6 +836,7 @@ function Chat() {
             + New Chat
           </button>
 
+
           {
             loadingConversations && (
 
@@ -688,8 +848,10 @@ function Chat() {
               >
                 Loading...
               </div>
+
             )
           }
+
 
           {
             !loadingConversations &&
@@ -712,11 +874,13 @@ function Chat() {
 
                   <button
                     type="button"
+
                     onClick={() =>
                       selectConversation(
                         conversation.id
                       )
                     }
+
                     style={{
                       flex: 1,
 
@@ -768,8 +932,10 @@ function Chat() {
 
                   </button>
 
+
                   <button
                     type="button"
+
                     onClick={
                       (event) => {
 
@@ -778,11 +944,14 @@ function Chat() {
                         deleteConversation(
                           conversation.id
                         );
+
                       }
                     }
+
                     title={
                       "Delete conversation"
                     }
+
                     style={{
                       border:
                         "none",
@@ -810,6 +979,8 @@ function Chat() {
           }
 
         </div>
+
+
 
         {/* ========================= */}
         {/* Chat */}
@@ -847,8 +1018,10 @@ function Chat() {
                         <div className="career-message-avatar">
                           AI
                         </div>
+
                       )
                     }
+
 
                     <div
                       className={
@@ -867,6 +1040,8 @@ function Chat() {
 
                       </div>
 
+
+
                       {/* ========================= */}
                       {/* Message Content */}
                       {/* ========================= */}
@@ -877,11 +1052,13 @@ function Chat() {
                           message.role ===
                             "assistant"
                             ? (
+
                               <ReactMarkdown>
                                 {
                                   message.content
                                 }
                               </ReactMarkdown>
+
                             )
                             : (
                               message.content
@@ -890,24 +1067,29 @@ function Chat() {
 
                       </div>
 
+
+
                       {/* ========================= */}
                       {/* Agent Observability */}
                       {/* ========================= */}
 
                       {
-                        message.role === "assistant" &&
+                        message.role ===
+                        "assistant" &&
 
                         Array.isArray(
                           message.toolsUsed
                         ) &&
 
-                        message.toolsUsed.length > 0 && (
+                        message.toolsUsed.length >
+                        0 && (
 
                           <div className="agent-activity">
 
                             <div className="agent-activity-title">
                               Agent Activity
                             </div>
+
 
                             {
                               message.toolsUsed.map(
@@ -922,11 +1104,13 @@ function Chat() {
                                     );
 
                                   const evidence =
-                                    tool.toolName === "SearchResume"
+                                    tool.toolName ===
+                                      "SearchResume"
                                       ? parseResumeEvidence(
                                         tool.result
                                       )
                                       : [];
+
 
                                   return (
 
@@ -938,10 +1122,43 @@ function Chat() {
                                     >
 
                                       <summary>
-                                        ⚙ {tool.toolName}
+                                        {tool.toolName === "JevRouter"
+                                          ? "🧭 Jev Router"
+                                          : `⚙ ${tool.toolName}`}
                                       </summary>
 
+
                                       <div className="agent-tool-details">
+                                        {/* Jev Router */}
+
+                                        {
+                                          tool.toolName === "JevRouter" && (
+
+                                            <div
+                                              style={{
+                                                marginBottom: "12px"
+                                              }}
+                                            >
+
+                                              <strong>
+                                                Intent
+                                              </strong>
+
+                                              <div
+                                                style={{
+                                                  marginTop: "5px"
+                                                }}
+                                              >
+                                                {
+                                                  String(tool.result || "")
+                                                    .replace(/^Intent:\s*/i, "")
+                                                }
+                                              </div>
+
+                                            </div>
+
+                                          )
+                                        }
 
                                         {/* Query */}
 
@@ -971,8 +1188,10 @@ function Chat() {
                                               </div>
 
                                             </div>
+
                                           )
                                         }
+
 
                                         {/* Limit */}
 
@@ -997,13 +1216,16 @@ function Chat() {
                                               </div>
 
                                             </div>
+
                                           )
                                         }
+
 
                                         {/* RAG Evidence */}
 
                                         {
-                                          evidence.length > 0 && (
+                                          evidence.length >
+                                          0 && (
 
                                             <div>
 
@@ -1079,6 +1301,7 @@ function Chat() {
 
                                                         </div>
 
+
                                                         <div
                                                           style={{
                                                             fontWeight:
@@ -1091,7 +1314,9 @@ function Chat() {
                                                           Similarity{" "}
                                                           {
                                                             item.similarity
-                                                              .toFixed(3)
+                                                              .toFixed(
+                                                                3
+                                                              )
                                                           }
                                                         </div>
 
@@ -1104,12 +1329,15 @@ function Chat() {
                                               </div>
 
                                             </div>
+
                                           )
                                         }
+
 
                                         {/* Other tools */}
 
                                         {
+                                          tool.toolName !== "JevRouter" &&
                                           !args.query &&
                                           evidence.length === 0 && (
 
@@ -1132,18 +1360,22 @@ function Chat() {
                                               </div>
 
                                             </div>
+
                                           )
                                         }
 
                                       </div>
 
                                     </details>
+
                                   );
+
                                 }
                               )
                             }
 
                           </div>
+
                         )
                       }
 
@@ -1154,6 +1386,8 @@ function Chat() {
                 )
               )
             }
+
+
 
             {/* ========================= */}
             {/* Typing */}
@@ -1175,11 +1409,9 @@ function Chat() {
                     </div>
 
                     <div className="career-typing">
-
                       <span />
                       <span />
                       <span />
-
                     </div>
 
                   </div>
@@ -1189,6 +1421,7 @@ function Chat() {
               )
             }
 
+
             <div
               ref={
                 bottomRef
@@ -1196,6 +1429,8 @@ function Chat() {
             />
 
           </div>
+
+
 
           {/* ========================= */}
           {/* Composer */}
@@ -1205,48 +1440,207 @@ function Chat() {
 
             <div className="career-chat-input-wrapper">
 
+
+              {/* Resume Upload */}
+
+              <label
+                title="Upload resume PDF"
+                aria-label="Upload resume PDF"
+
+                style={{
+                  width: "38px",
+                  height: "38px",
+
+                  flexShrink: 0,
+
+                  display: "grid",
+                  placeItems: "center",
+
+                  borderRadius: "10px",
+
+                  background:
+                    "#f1f5f9",
+
+                  color:
+                    "#475569",
+
+                  cursor:
+                    uploadingResume
+                      ? "wait"
+                      : "pointer",
+
+                  fontSize:
+                    "18px",
+
+                  userSelect:
+                    "none",
+
+                  opacity:
+                    uploadingResume
+                      ? 0.65
+                      : 1
+                }}
+              >
+
+                <input
+                  type="file"
+
+                  accept="
+                    application/pdf,.pdf
+                  "
+
+                  onChange={
+                    uploadResume
+                  }
+
+                  disabled={
+                    uploadingResume
+                  }
+
+                  style={{
+                    display: "none"
+                  }}
+                />
+
+                {
+                  uploadingResume
+                    ? "…"
+                    : "📎"
+                }
+
+              </label>
+
+
+
+              {/* Chat Input */}
+
               <textarea
                 value={
                   input
                 }
+
                 onChange={
                   (event) =>
                     setInput(
                       event.target.value
                     )
                 }
+
                 onKeyDown={
                   handleKeyDown
                 }
+
                 placeholder={
                   activeConversationId
                     ? "Ask about roles, skills, applications, or your career..."
                     : "Create or select a conversation first..."
                 }
+
                 disabled={
                   activeConversationId ===
                   null
                 }
+
                 rows="1"
               />
 
+
+
+              {/* Send */}
+
               <button
                 type="button"
+
                 onClick={
                   sendMessage
                 }
+
                 disabled={
                   sending ||
                   !input.trim() ||
                   activeConversationId ===
                   null
                 }
+
                 className="career-chat-send"
               >
                 ↑
               </button>
 
             </div>
+
+
+
+            {/* Resume Upload Status */}
+
+            {
+              resumeUploadMessage && (
+
+                <div
+                  role="status"
+
+                  style={{
+                    maxWidth:
+                      "820px",
+
+                    margin:
+                      "8px auto 0",
+
+                    padding:
+                      "8px 10px",
+
+                    borderRadius:
+                      "9px",
+
+                    background:
+                      resumeUploadMessage
+                        .toLowerCase()
+                        .includes(
+                          "failed"
+                        ) ||
+                        resumeUploadMessage
+                          .toLowerCase()
+                          .includes(
+                            "please select"
+                          )
+                        ? "#fff1f2"
+                        : "#f0fdf4",
+
+                    color:
+                      resumeUploadMessage
+                        .toLowerCase()
+                        .includes(
+                          "failed"
+                        ) ||
+                        resumeUploadMessage
+                          .toLowerCase()
+                          .includes(
+                            "please select"
+                          )
+                        ? "#be123c"
+                        : "#166534",
+
+                    textAlign:
+                      "center",
+
+                    fontSize:
+                      "12px",
+
+                    fontWeight:
+                      "600"
+                  }}
+                >
+
+                  {
+                    resumeUploadMessage
+                  }
+
+                </div>
+
+              )
+            }
+
+
 
             <div className="career-chat-hint">
 
@@ -1265,7 +1659,11 @@ function Chat() {
       </div>
 
     </div>
+
   );
+
 }
+
+
 
 export default Chat;
