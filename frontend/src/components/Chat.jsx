@@ -506,7 +506,7 @@ function Chat() {
 
         const response =
           await fetch(
-            "/api/chat",
+            "/api/chat/stream",
             {
               method: "POST",
 
@@ -531,42 +531,259 @@ function Chat() {
           );
         }
 
-        const data =
-          await response.json();
+        if (!response.body) {
+          throw new Error(
+            "Streaming response body is missing."
+          );
+        }
 
-        console.log(
-          "Chat API response:",
-          data
-        );
+        const reader =
+          response.body.getReader();
 
-        console.log(
-          "Tools used:",
-          data.toolsUsed
-        );
+        const decoder =
+          new TextDecoder();
 
-        setMessages(
-          (current) => [
-            ...current,
+        let buffer = "";
+
+        let streamingMessageStarted =
+          false;
+
+        while (true) {
+
+          const {
+            value,
+            done
+          } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(
+            value,
             {
-              role:
-                "assistant",
-
-              content:
-                data.response ||
-                "I couldn't generate a response.",
-
-              toolsUsed:
-                Array.isArray(
-                  data.toolsUsed
-                )
-                  ? data.toolsUsed
-                  : []
+              stream: true
             }
-          ]
-        );
+          );
 
-        // Refresh sidebar so the
-        // generated title appears immediately.
+          const events =
+            buffer.split("\n\n");
+
+          buffer =
+            events.pop() || "";
+
+          for (const eventText of events) {
+
+            if (!eventText.trim()) {
+              continue;
+            }
+
+            let eventName = "";
+            let eventData = "";
+
+            const lines =
+              eventText.split("\n");
+
+            for (const line of lines) {
+
+              if (line.startsWith("event:")) {
+
+                eventName =
+                  line
+                    .slice(6)
+                    .trim();
+              }
+
+              if (line.startsWith("data:")) {
+
+                eventData +=
+                  line
+                    .slice(5)
+                    .trim();
+              }
+            }
+
+            // =========================
+            // Status
+            // =========================
+            if (
+              eventName === "status"
+            ) {
+
+              console.log(
+                "[SSE STATUS]",
+                eventData
+              );
+
+              // =========================
+              // Streaming Delta
+              // =========================
+            } else if (
+              eventName === "delta"
+            ) {
+
+              const delta =
+                eventData;
+
+              if (
+                !streamingMessageStarted
+              ) {
+
+                streamingMessageStarted =
+                  true;
+
+                setMessages(
+                  (current) => [
+                    ...current,
+                    {
+                      role:
+                        "assistant",
+
+                      content:
+                        delta,
+
+                      toolsUsed:
+                        []
+                    }
+                  ]
+                );
+
+              } else {
+
+                setMessages(
+                  (current) => {
+
+                    if (
+                      current.length === 0
+                    ) {
+                      return current;
+                    }
+
+                    const updated =
+                      [...current];
+
+                    const lastIndex =
+                      updated.length - 1;
+
+                    updated[lastIndex] = {
+                      ...updated[lastIndex],
+
+                      content:
+                        (
+                          updated[lastIndex]
+                            .content || ""
+                        )
+                        + delta
+                    };
+
+                    return updated;
+                  }
+                );
+              }
+
+              // =========================
+              // Final Complete Message
+              // =========================
+            } else if (
+              eventName === "message"
+            ) {
+
+              const data =
+                JSON.parse(
+                  eventData
+                );
+
+              setMessages(
+                (current) => {
+
+                  /*
+                   * If streaming already created
+                   * the assistant bubble, update it.
+                   */
+                  if (
+                    streamingMessageStarted &&
+                    current.length > 0
+                  ) {
+
+                    const updated =
+                      [...current];
+
+                    const lastIndex =
+                      updated.length - 1;
+
+                    updated[lastIndex] = {
+                      ...updated[lastIndex],
+
+                      content:
+                        data.response ||
+                        updated[lastIndex]
+                          .content ||
+                        "I couldn't generate a response.",
+
+                      toolsUsed:
+                        Array.isArray(
+                          data.toolsUsed
+                        )
+                          ? data.toolsUsed
+                          : []
+                    };
+
+                    return updated;
+                  }
+
+                  /*
+                   * Fallback:
+                   * If no delta was received,
+                   * create the final assistant
+                   * message normally.
+                   */
+                  return [
+                    ...current,
+                    {
+                      role:
+                        "assistant",
+
+                      content:
+                        data.response ||
+                        "I couldn't generate a response.",
+
+                      toolsUsed:
+                        Array.isArray(
+                          data.toolsUsed
+                        )
+                          ? data.toolsUsed
+                          : []
+                    }
+                  ];
+                }
+              );
+
+              // =========================
+              // Error
+              // =========================
+            } else if (
+              eventName === "error"
+            ) {
+
+              throw new Error(
+                eventData ||
+                "Streaming chat failed."
+              );
+
+              // =========================
+              // Done
+              // =========================
+            } else if (
+              eventName === "done"
+            ) {
+
+              console.log(
+                "[SSE DONE]"
+              );
+            }
+          }
+        }
+
         await loadConversations(
           true
         );
@@ -574,7 +791,7 @@ function Chat() {
       } catch (error) {
 
         console.error(
-          "Chat failed:",
+          "[CHAT ERROR]",
           error
         );
 
@@ -582,12 +799,9 @@ function Chat() {
           (current) => [
             ...current,
             {
-              role:
-                "assistant",
-
+              role: "assistant",
               content:
-                "I couldn't reach the AI service. Please try again.",
-
+                "Sorry, something went wrong while generating the response.",
               toolsUsed: []
             }
           ]
@@ -598,14 +812,10 @@ function Chat() {
         setSending(
           false
         );
-
       }
-
     };
 
-
-
-  // =========================
+// =========================
   // Resume Upload
   // =========================
 

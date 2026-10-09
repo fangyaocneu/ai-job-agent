@@ -2,6 +2,8 @@ package com.fangyao.agent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
@@ -9,13 +11,17 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.http.StreamResponse;
+import com.openai.helpers.ResponseAccumulator;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseFunctionToolCall;
 import com.openai.models.responses.ResponseInputItem;
+import com.openai.models.responses.ResponseStreamEvent;
 
 @Service
+
 public class ChatService {
 
     private final OpenAIClient client;
@@ -27,6 +33,8 @@ public class ChatService {
     private final ConversationTitleService conversationTitleService;
     private final ChatConversationRepository conversationRepository;
     private final JevIntentRouter jevIntentRouter;
+    private final UrlContentService urlContentService;
+    private final JobDescriptionService jobDescriptionService;
 
     // =========================
     // Constructor
@@ -58,6 +66,10 @@ public class ChatService {
                 = new ChatConversationRepository();
         this.jevIntentRouter
                 = new JevIntentRouter();
+        this.urlContentService
+                = new UrlContentService();
+        this.jobDescriptionService
+                = new JobDescriptionService();
     }
 
     // =========================
@@ -306,13 +318,92 @@ public class ChatService {
         public AnalyzeResumeGap() {
         }
     }
-
     // =========================
+// Tool 8: Read URL
+// =========================
+
+    @JsonClassDescription(
+            """
+        Reads readable text content from a public HTTP or HTTPS webpage.
+
+        Use this tool when the user provides a URL
+        and asks about the page content, such as a job posting,
+        company page, article, or documentation page.
+        """
+    )
+    public static class ReadUrl {
+
+        @JsonPropertyDescription(
+                """
+            The public HTTP or HTTPS URL to read.
+            """
+        )
+        public String url;
+
+        public ReadUrl() {
+        }
+    }
+    // =========================
+// Tool 9: Analyze Job URL
+// =========================
+
+    @JsonClassDescription(
+            """
+        Reads a public job posting URL and compares the job
+        requirements against the candidate's uploaded resume.
+
+        Use this tool when the user provides a job URL and asks:
+        - whether they are a good fit
+        - whether they are qualified
+        - what skills they are missing
+        - what resume gaps exist
+        - whether they should apply
+        - When the user provides a job posting URL and asks whether
+  they are qualified, whether the role is a good fit,
+  what skills they are missing, or whether they should apply,
+  use the AnalyzeJobUrl tool instead of ReadUrl.
+        """
+    )
+    public static class AnalyzeJobUrl {
+
+        @JsonPropertyDescription(
+                """
+            The public HTTP or HTTPS URL of the job posting.
+            """
+        )
+        public String url;
+
+        public AnalyzeJobUrl() {
+        }
+    }
+// =========================
 // Main Chat
 // =========================
+
+// =========================
+// Non-streaming version
+// =========================
     public ChatResult chat(
-            long conversationId,
+            Long conversationId,
             String message
+    ) {
+
+        return chat(
+                conversationId,
+                message,
+                delta -> {
+                    // No-op for non-streaming callers
+                }
+        );
+    }
+
+// =========================
+// Streaming-capable version
+// =========================
+    public ChatResult chat(
+            Long conversationId,
+            String message,
+            Consumer<String> deltaConsumer
     ) {
 
         if (message == null
@@ -323,9 +414,19 @@ public class ChatService {
             );
         }
 
+        long requestStart
+                = System.nanoTime();
+
+        System.out.println(
+                "[LATENCY] ===== NEW CHAT REQUEST ====="
+        );
+
         // =========================
         // Jev Intent Routing
         // =========================
+        long jevStart
+                = System.nanoTime();
+
         AgentIntent intent;
         boolean jevRoutingSucceeded = true;
 
@@ -355,10 +456,23 @@ public class ChatService {
                     = false;
         }
 
-        // 下面接你原本的 chat logic
+        long jevMs
+                = (System.nanoTime() - jevStart)
+                / 1_000_000;
+
+        System.out.println(
+                "[LATENCY] Jev routing = "
+                + jevMs
+                + " ms"
+        );
+
         // =========================
-        // Auto Generate Conversation Title
+        // Keep all your existing chat logic below this point
         // =========================
+        // =========================
+// Auto Generate Conversation Title
+// Async - does not block chat response
+// =========================
         String currentTitle
                 = conversationRepository.getTitle(
                         conversationId
@@ -369,37 +483,65 @@ public class ChatService {
                 || currentTitle.equalsIgnoreCase("New Chat")
                 || currentTitle.equalsIgnoreCase("New Conversation")) {
 
-            try {
+            CompletableFuture.runAsync(() -> {
 
-                String generatedTitle
-                        = conversationTitleService.generateTitle(
-                                message
-                        );
+                try {
 
-                conversationRepository.updateTitle(
-                        conversationId,
-                        generatedTitle
-                );
+                    long titleStart
+                            = System.nanoTime();
 
-                System.out.println(
-                        "[CONVERSATION TITLE] "
-                        + generatedTitle
-                );
+                    String generatedTitle
+                            = conversationTitleService.generateTitle(
+                                    message
+                            );
 
-            } catch (Exception e) {
+                    long titleMs
+                            = (System.nanoTime() - titleStart)
+                            / 1_000_000;
 
-                System.err.println(
-                        "[CONVERSATION TITLE ERROR] "
-                        + e.getMessage()
-                );
-            }
+                    System.out.println(
+                            "[LATENCY] Conversation title async = "
+                            + titleMs
+                            + " ms"
+                    );
+
+                    conversationRepository.updateTitle(
+                            conversationId,
+                            generatedTitle
+                    );
+
+                    System.out.println(
+                            "[CONVERSATION TITLE] "
+                            + generatedTitle
+                    );
+
+                } catch (Exception e) {
+
+                    System.err.println(
+                            "[CONVERSATION TITLE ERROR] "
+                            + e.getMessage()
+                    );
+                }
+            });
         }
 
         // =========================
         // Load Candidate Profile
         // =========================
+        long profileStart = System.nanoTime();
+
         CandidateProfile profile
                 = profileRepository.loadProfile();
+
+        long profileMs
+                = (System.nanoTime() - profileStart)
+                / 1_000_000;
+
+        System.out.println(
+                "[LATENCY] Candidate profile load = "
+                + profileMs
+                + " ms"
+        );
 
         String profileContext
                 = profile == null
@@ -407,13 +549,25 @@ public class ChatService {
                         : profile.getProfileSummary();
 
         // =========================
-        // Load Persistent Memory
-        // =========================
+        // Load Per
+        // ====
+        long historyStart = System.nanoTime();
+
         List<ChatMessage> recentMessages
                 = chatMessageRepository.getRecentMessages(
                         conversationId,
                         10
                 );
+
+        long historyMs
+                = (System.nanoTime() - historyStart)
+                / 1_000_000;
+
+        System.out.println(
+                "[LATENCY] Conversation history load = "
+                + historyMs
+                + " ms"
+        );
 
         StringBuilder historyBuilder
                 = new StringBuilder();
@@ -623,6 +777,12 @@ public class ChatService {
                         .addTool(
                                 AnalyzeResumeGap.class
                         )
+                        .addTool(
+                                ReadUrl.class
+                        )
+                        .addTool(
+                                AnalyzeJobUrl.class
+                        )
                         .input(
                                 ResponseCreateParams.Input
                                         .ofResponse(
@@ -651,12 +811,88 @@ public class ChatService {
                                     inputs
                             )
             );
+            long aiStart = System.nanoTime();
 
-            Response response
-                    = client.responses()
-                            .create(
-                                    paramsBuilder.build()
-                            );
+            Response response;
+
+            if (round == 1) {
+
+                // =========================
+                // Round 1:
+                // Keep blocking so the model
+                // can decide which tool to call.
+                // =========================
+                response = client.responses()
+                        .create(
+                                paramsBuilder.build()
+                        );
+
+            } else {
+
+                // =========================
+                // Round 2+:
+                // Stream final answer tokens.
+                // =========================
+                ResponseAccumulator accumulator
+                        = ResponseAccumulator.create();
+
+                try (StreamResponse<ResponseStreamEvent> streamResponse
+                        = client.responses()
+                                .createStreaming(
+                                        paramsBuilder.build()
+                                )) {
+
+                            streamResponse.stream()
+                                    .peek(
+                                            accumulator::accumulate
+                                    )
+                                    .flatMap(
+                                            event
+                                            -> event.outputTextDelta()
+                                                    .stream()
+                                    )
+                                    .forEach(
+                                            textEvent -> {
+
+                                                String delta
+                                                = textEvent.delta();
+
+                                                System.out.print(
+                                                        delta
+                                                );
+
+                                                if (deltaConsumer != null
+                                                && delta != null
+                                                && !delta.isEmpty()) {
+
+                                                    deltaConsumer.accept(
+                                                            delta
+                                                    );
+                                                }
+
+                                                // Later we will send this
+                                                // delta to SSE / frontend.
+                                            }
+                                    );
+                        }
+
+                        System.out.println();
+
+                        response
+                                = accumulator.response();
+            }
+
+            long aiMs
+                    = (System.nanoTime() - aiStart)
+                    / 1_000_000;
+
+            System.out.println(
+                    "[LATENCY] OpenAI round "
+                    + round
+                    + " = "
+                    + aiMs
+                    + " ms"
+            );
 
             boolean toolWasCalledThisRound
                     = false;
@@ -700,10 +936,24 @@ public class ChatService {
 
                 try {
 
+                    long toolStart = System.nanoTime();
+
                     toolResult
                             = executeTool(
                                     functionCall
                             );
+
+                    long toolMs
+                            = (System.nanoTime() - toolStart)
+                            / 1_000_000;
+
+                    System.out.println(
+                            "[LATENCY] Tool "
+                            + functionCall.name()
+                            + " = "
+                            + toolMs
+                            + " ms"
+                    );
 
                 } catch (Exception e) {
 
@@ -786,6 +1036,8 @@ public class ChatService {
                 // =========================
                 // Save Persistent Memory
                 // =========================
+                long persistenceStart = System.nanoTime();
+
                 chatMessageRepository.save(
                         conversationId,
                         "user",
@@ -815,6 +1067,45 @@ public class ChatService {
                             toolCall
                     );
                 }
+
+                for (AgentTrace trace : toolTraces) {
+
+                    AgentToolCall toolCall
+                            = new AgentToolCall(
+                                    assistantMessageId,
+                                    trace.getToolName(),
+                                    trace.getArguments(),
+                                    trace.getResult()
+                            );
+
+                    agentToolCallRepository.save(
+                            toolCall
+                    );
+                }
+
+                long persistenceMs
+                        = (System.nanoTime() - persistenceStart)
+                        / 1_000_000;
+
+                System.out.println(
+                        "[LATENCY] Persistence = "
+                        + persistenceMs
+                        + " ms"
+                );
+
+                long totalMs
+                        = (System.nanoTime() - requestStart)
+                        / 1_000_000;
+
+                System.out.println(
+                        "[LATENCY] TOTAL = "
+                        + totalMs
+                        + " ms"
+                );
+
+                System.out.println(
+                        "[LATENCY] ============================"
+                );
 
                 return new ChatResult(
                         finalAnswer,
@@ -1123,7 +1414,191 @@ public class ChatService {
 
                 yield analysis.getAnalysis();
             }
+            // =========================
+// Tool 8: Read URL
+// =========================
+            case "ReadUrl" -> {
 
+                ReadUrl arguments
+                        = functionCall.arguments(
+                                ReadUrl.class
+                        );
+
+                if (arguments.url == null
+                        || arguments.url.isBlank()) {
+
+                    throw new IllegalArgumentException(
+                            "ReadUrl requires a URL."
+                    );
+                }
+
+                System.out.println(
+                        "[AI TOOL EXECUTOR] Running readUrl()"
+                );
+
+                System.out.println(
+                        "[AI TOOL ARGUMENT] url = "
+                        + arguments.url
+                );
+
+                yield urlContentService.fetchUrl(
+                arguments.url
+                );
+            }
+            // =========================
+// Tool 9: Analyze Job URL
+// =========================
+            case "AnalyzeJobUrl" -> {
+
+                AnalyzeJobUrl arguments
+                        = functionCall.arguments(
+                                AnalyzeJobUrl.class
+                        );
+
+                if (arguments.url == null
+                        || arguments.url.isBlank()) {
+
+                    throw new IllegalArgumentException(
+                            "AnalyzeJobUrl requires a URL."
+                    );
+                }
+
+                System.out.println(
+                        "[AI TOOL EXECUTOR] Running analyzeJobUrl()"
+                );
+
+                System.out.println(
+                        "[AI TOOL ARGUMENT] url = "
+                        + arguments.url
+                );
+
+                long urlStart
+                        = System.nanoTime();
+
+                String rawPageText
+                        = urlContentService.fetchUrl(
+                                arguments.url
+                        );
+
+                String jobDescription
+                        = jobDescriptionService
+                                .extractCoreJobDescription(
+                                        rawPageText
+                                );
+
+                System.out.println(
+                        "[JD CLEANER] Raw chars = "
+                        + rawPageText.length()
+                );
+
+                System.out.println(
+                        "[JD CLEANER] Clean chars = "
+                        + jobDescription.length()
+                );
+
+                long urlMs
+                        = (System.nanoTime() - urlStart)
+                        / 1_000_000;
+
+                System.out.println(
+                        "[LATENCY] AnalyzeJobUrl URL fetch = "
+                        + urlMs
+                        + " ms"
+                );
+
+                long ragStart
+                        = System.nanoTime();
+
+                List<ResumeChunkMatch> chunks
+                        = resumeRagService
+                                .retrieveRelevantChunks(
+                                        jobDescription,
+                                        3
+                                );
+
+                long ragMs
+                        = (System.nanoTime() - ragStart)
+                        / 1_000_000;
+
+                System.out.println(
+                        "[LATENCY] AnalyzeJobUrl resume retrieval = "
+                        + ragMs
+                        + " ms"
+                );
+
+                StringBuilder result
+                        = new StringBuilder();
+
+                result.append(
+                        "JOB DESCRIPTION:\n\n"
+                );
+
+                result.append(
+                        jobDescription
+                );
+
+                result.append(
+                        "\n\n"
+                );
+
+                result.append(
+                        "RESUME EVIDENCE:\n\n"
+                );
+
+                if (chunks.isEmpty()) {
+
+                    result.append(
+                            "No relevant resume information was found."
+                    );
+
+                } else {
+
+                    for (int i = 0;
+                            i < chunks.size();
+                            i++) {
+
+                        ResumeChunkMatch chunk
+                                = chunks.get(i);
+
+                        result.append(
+                                "--- Resume Chunk "
+                                + (i + 1)
+                                + " ---\n"
+                        );
+
+                        result.append(
+                                "Resume ID: "
+                                + chunk.getResumeId()
+                                + "\n"
+                        );
+
+                        result.append(
+                                "Chunk Index: "
+                                + chunk.getChunkIndex()
+                                + "\n"
+                        );
+
+                        result.append(
+                                "Similarity: "
+                                + String.format(
+                                        "%.4f",
+                                        chunk.getSimilarity()
+                                )
+                                + "\n\n"
+                        );
+
+                        result.append(
+                                chunk.getContent()
+                        );
+
+                        result.append(
+                                "\n\n"
+                        );
+                    }
+                }
+
+                yield result.toString();
+            }
             // =========================
             // Unknown Tool
             // =========================
