@@ -34,35 +34,71 @@ public class JevIntentRouter {
         }
 
         // =========================
-        // Jev Fallback
+        // Jev Availability Check
         // =========================
-        JevClient.JevDecision decision =
-                jevClient.classifyIntent(
-                        message
-                );
+        if (!jevClient.isAvailable()) {
 
-        System.out.println(
-                "[JEV ROUTE] choice="
-                + decision.getChoice()
-                + ", confidence="
-                + decision.getConfidence()
-        );
-
-        if (decision.getConfidence()
-                < MIN_CONFIDENCE) {
+            System.out.println(
+                    "[JEV FALLBACK] Jev unavailable. Defaulting to GENERAL."
+            );
 
             return AgentIntent.GENERAL;
         }
 
+        // =========================
+        // Jev Fallback
+        // =========================
         try {
 
-            return AgentIntent.valueOf(
-                    decision.getChoice()
-                            .toUpperCase()
-                            .trim()
+            JevClient.JevDecision decision =
+                    jevClient.classifyIntent(
+                            message
+                    );
+
+            System.out.println(
+                    "[JEV ROUTE] choice="
+                    + decision.getChoice()
+                    + ", confidence="
+                    + decision.getConfidence()
             );
 
-        } catch (IllegalArgumentException e) {
+            if (decision.getConfidence()
+                    < MIN_CONFIDENCE) {
+
+                System.out.println(
+                        "[JEV FALLBACK] Low confidence. Defaulting to GENERAL."
+                );
+
+                return AgentIntent.GENERAL;
+            }
+
+            try {
+
+                return AgentIntent.valueOf(
+                        decision.getChoice()
+                                .toUpperCase()
+                                .trim()
+                );
+
+            } catch (IllegalArgumentException e) {
+
+                System.out.println(
+                        "[JEV FALLBACK] Unknown intent returned by Jev. Defaulting to GENERAL."
+                );
+
+                return AgentIntent.GENERAL;
+            }
+
+        } catch (Exception e) {
+
+            System.out.println(
+                    "[JEV ERROR] Failed to classify intent: "
+                    + e.getMessage()
+            );
+
+            System.out.println(
+                    "[JEV FALLBACK] Defaulting to GENERAL."
+            );
 
             return AgentIntent.GENERAL;
         }
@@ -162,7 +198,7 @@ public class JevIntentRouter {
 
         /*
          * Ambiguous request:
-         * let Jev classify it.
+         * let Jev classify it if available.
          */
         return null;
     }

@@ -13,45 +13,58 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class JevClient {
 
-    private static final String ENDPOINT =
-            "https://jevmodel.org/v1/systemone";
+    private static final String ENDPOINT
+            = "https://jevmodel.org/v1/systemone";
 
     private final String apiKey;
+    private final boolean available;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
     public JevClient() {
 
-        this.apiKey =
-                System.getenv("JEVMODEL_API_KEY");
+        this.apiKey
+                = System.getenv("JEVMODEL_API_KEY");
 
-        if (apiKey == null
-                || apiKey.isBlank()) {
+        this.available
+                = apiKey != null
+                && !apiKey.isBlank();
 
-            throw new IllegalStateException(
-                    "JEVMODEL_API_KEY is not set."
+        if (!available) {
+            System.out.println(
+                    "[JEV] JEVMODEL_API_KEY missing. Jev fallback disabled."
             );
         }
 
-        this.httpClient =
-                HttpClient.newBuilder()
+        this.httpClient
+                = HttpClient.newBuilder()
                         .connectTimeout(
                                 Duration.ofSeconds(10)
                         )
                         .build();
 
-        this.objectMapper =
-                new ObjectMapper();
+        this.objectMapper
+                = new ObjectMapper();
+    }
+
+    public boolean isAvailable() {
+        return available;
     }
 
     public JevDecision classifyIntent(
             String message
     ) {
 
+        if (!available) {
+            throw new IllegalStateException(
+                    "Jev is unavailable because JEVMODEL_API_KEY is missing."
+            );
+        }
+
         try {
 
-            Map<String, Object> criteria =
-                    new LinkedHashMap<>();
+            Map<String, Object> criteria
+                    = new LinkedHashMap<>();
 
             criteria.put(
                     "RESUME",
@@ -78,8 +91,8 @@ public class JevClient {
                     "General career questions that do not clearly belong to the other categories."
             );
 
-            Map<String, Object> routeQuestion =
-                    new LinkedHashMap<>();
+            Map<String, Object> routeQuestion
+                    = new LinkedHashMap<>();
 
             routeQuestion.put(
                     "type",
@@ -96,16 +109,16 @@ public class JevClient {
                     criteria
             );
 
-            Map<String, Object> questions =
-                    new LinkedHashMap<>();
+            Map<String, Object> questions
+                    = new LinkedHashMap<>();
 
             questions.put(
                     "route",
                     routeQuestion
             );
 
-            Map<String, Object> body =
-                    new LinkedHashMap<>();
+            Map<String, Object> body
+                    = new LinkedHashMap<>();
 
             body.put(
                     "model",
@@ -122,13 +135,13 @@ public class JevClient {
                     questions
             );
 
-            String jsonBody =
-                    objectMapper.writeValueAsString(
+            String jsonBody
+                    = objectMapper.writeValueAsString(
                             body
                     );
 
-            HttpRequest request =
-                    HttpRequest.newBuilder()
+            HttpRequest request
+                    = HttpRequest.newBuilder()
                             .uri(
                                     URI.create(
                                             ENDPOINT
@@ -152,8 +165,8 @@ public class JevClient {
                             )
                             .build();
 
-            HttpResponse<String> response =
-                    httpClient.send(
+            HttpResponse<String> response
+                    = httpClient.send(
                             request,
                             HttpResponse.BodyHandlers.ofString()
                     );
@@ -168,25 +181,25 @@ public class JevClient {
                 );
             }
 
-            JsonNode root =
-                    objectMapper.readTree(
+            JsonNode root
+                    = objectMapper.readTree(
                             response.body()
                     );
 
-            JsonNode route =
-                    root.path(
+            JsonNode route
+                    = root.path(
                             "answers"
                     ).path(
                             "route"
                     );
 
-            String choice =
-                    route.path(
+            String choice
+                    = route.path(
                             "choice"
                     ).asText();
 
-            double confidence =
-                    route.path(
+            double confidence
+                    = route.path(
                             "confidence"
                     ).asDouble();
 
@@ -214,11 +227,11 @@ public class JevClient {
                 double confidence
         ) {
 
-            this.choice =
-                    choice;
+            this.choice
+                    = choice;
 
-            this.confidence =
-                    confidence;
+            this.confidence
+                    = confidence;
         }
 
         public String getChoice() {
