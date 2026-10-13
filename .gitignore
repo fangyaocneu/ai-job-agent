@@ -6,7 +6,8 @@ logs/
 *.log
 .env
 
-application-local.properties`nbatch-task-definition.json
+application-local.properties
+batch-task-definition.json
 batch-task-source.json
 flexible-time-window.json
 scheduler-ecs-policy.json
