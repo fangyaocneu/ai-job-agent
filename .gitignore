@@ -6,4 +6,12 @@ logs/
 *.log
 .env
 
-application-local.properties
+application-local.propertiesbatch-task-definition.json
+batch-task-source.json
+flexible-time-window.json
+scheduler-ecs-policy.json
+scheduler-target.json
+scheduler-trust-policy.json
+task-definition-current.json
+task-definition-fixed.json
+task-definition-release.json
