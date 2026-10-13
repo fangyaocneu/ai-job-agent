@@ -1,0 +1,42 @@
+[
+  {
+    "input": "Find jobs for me",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Search backend jobs",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Am I a good fit for this job? https://example.com/job",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Should I apply to this role? https://example.com/job",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "What skills are on my resume?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Based on my resume, what are my strongest skills?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "What is the status of my application?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Show me my applications",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "What should I learn next in my career?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How can I become a better engineer?",
+    "expectedIntent": "GENERAL"
+  }
+]

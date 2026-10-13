@@ -7,8 +7,8 @@ public class JevIntentRouter {
     private final JevClient jevClient;
 
     public JevIntentRouter() {
-        this.jevClient =
-                new JevClient();
+        this.jevClient
+                = new JevClient();
     }
 
     public AgentIntent route(
@@ -18,8 +18,8 @@ public class JevIntentRouter {
         // =========================
         // Fast Local Routing
         // =========================
-        AgentIntent localIntent =
-                tryLocalRoute(
+        AgentIntent localIntent
+                = tryLocalRoute(
                         message
                 );
 
@@ -50,8 +50,8 @@ public class JevIntentRouter {
         // =========================
         try {
 
-            JevClient.JevDecision decision =
-                    jevClient.classifyIntent(
+            JevClient.JevDecision decision
+                    = jevClient.classifyIntent(
                             message
                     );
 
@@ -117,13 +117,13 @@ public class JevIntentRouter {
             return null;
         }
 
-        String normalized =
-                message
+        String normalized
+                = message
                         .toLowerCase()
                         .trim();
 
-        boolean hasUrl =
-                normalized.contains("http://")
+        boolean hasUrl
+                = normalized.contains("http://")
                 || normalized.contains("https://");
 
         // =========================
@@ -166,16 +166,37 @@ public class JevIntentRouter {
         // =========================
         // JOB SEARCH
         // =========================
-        if (!hasUrl
-                && containsAny(
+        boolean mentionsJob
+                = containsAny(
                         normalized,
-                        "find jobs",
-                        "find me jobs",
-                        "search jobs",
-                        "job openings",
-                        "jobs for me",
-                        "available jobs"
-                )) {
+                        "job",
+                        "jobs",
+                        "opening",
+                        "openings",
+                        "position",
+                        "positions",
+                        "role",
+                        "roles"
+                );
+
+        boolean hasJobSearchAction
+                = containsAny(
+                        normalized,
+                        "find",
+                        "search",
+                        "show",
+                        "recommend",
+                        "browse",
+                        "looking for"
+                );
+
+        if (!hasUrl
+                && mentionsJob
+                && hasJobSearchAction) {
+
+            System.out.println(
+                    "[LOCAL ROUTE] intent=JOB_SEARCH"
+            );
 
             return AgentIntent.JOB_SEARCH;
         }
