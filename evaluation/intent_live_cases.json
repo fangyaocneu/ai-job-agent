@@ -1,0 +1,202 @@
+[
+  {
+    "input": "Any openings for someone with Java experience?",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "I need a new backend position",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Can you locate roles that suit an entry-level SWE?",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Are there companies hiring Spring developers?",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "I would like opportunities near Seattle",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Could you pull up positions that use PostgreSQL?",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Get me a shortlist of remote engineering vacancies",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Find backend jobs and check my application status",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Do not show me internships; find full-time roles",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "I am looking for a software engineering job",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Does this position suit my experience?",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "How closely do I meet these requirements?",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Evaluate whether I am competitive for a senior backend opening",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Here is a job description; assess my fit",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Do I have the required qualifications for the role?",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Would my Spring Boot background meet this posting?",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Compare my background with this specific opening",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Tell me which requirements I am missing for this position",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "I pasted a role description; assess my fit",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Is this opening realistic for my current experience?",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "What are my strongest technical skills?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Summarize my professional background",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Can you review my CV?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Which projects should I highlight on my CV?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "What do my past roles say about my experience?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Help rewrite the experience section of my CV",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "What is the biggest gap in my CV?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Can you extract my education history?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Evaluate the clarity of my work history",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "How could I tailor the skills section of my CV?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Did I already submit to Acme?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Which applications are still pending?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Remind me whom I should follow up with",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Where am I in the hiring pipeline?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Have any of my submissions progressed?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Check whether I contacted the recruiter already",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "When did I send my last application?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Help me track recruiter responses",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Which positions did I apply for last month?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "I want to follow up on my previous submission",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "How should I learn Kubernetes?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "Explain the CAP theorem simply",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "Can you create a study plan for system design?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "What is the difference between threads and processes?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "What should a junior engineer focus on?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How do I negotiate job offers?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "Why does database indexing matter?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How can I improve debugging skills?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How do interviews assess ownership?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "What does eventual consistency mean?",
+    "expectedIntent": "GENERAL"
+  }
+]

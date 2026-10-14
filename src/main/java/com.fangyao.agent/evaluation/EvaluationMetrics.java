@@ -207,4 +207,37 @@ public class EvaluationMetrics {
 
         return matrix;
     }
+    
+    // =========================
+    // Percentile Latency
+    // =========================
+    public static double percentileLatencyMs(
+            List<EvaluationResult> results,
+            double percentile
+    ) {
+
+        if (results == null || results.isEmpty()) {
+            return 0.0;
+        }
+
+        if (percentile < 0 || percentile > 100) {
+            throw new IllegalArgumentException(
+                    "Percentile must be between 0 and 100."
+            );
+        }
+
+        List<Long> latencies = results.stream()
+                .map(EvaluationResult::getLatencyMs)
+                .sorted()
+                .toList();
+
+        int index = (int) Math.ceil(
+                (percentile / 100.0) * latencies.size()
+        ) - 1;
+
+        index = Math.max(0, index);
+
+        return latencies.get(index);
+    }
+
 }

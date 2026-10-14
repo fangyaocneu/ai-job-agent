@@ -1,0 +1,202 @@
+[
+  {
+    "input": "Find jobs for me",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Search backend jobs",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Show me Java developer jobs",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Recommend software engineer roles",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Browse remote job openings",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Find entry level positions",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Search for Spring Boot jobs",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Looking for backend roles",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Show me software engineering positions",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Find remote Java jobs",
+    "expectedIntent": "JOB_SEARCH"
+  },
+  {
+    "input": "Am I a good fit for this job? https://example.com/job",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Should I apply to this role? https://example.com/job",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Match my skills to this role https://example.com/role",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Am I qualified for this job? https://example.com/123",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Check the job description https://example.com/listing",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Is my experience a good fit? https://example.com/post",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Evaluate this job posting https://example.com/post",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "How closely do I match this job? https://example.com/job2",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Compare my qualifications with this role https://example.com/role2",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "Should I apply? This role is here: https://example.com/role3",
+    "expectedIntent": "JOB_MATCH"
+  },
+  {
+    "input": "What skills are on my resume?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Based on my resume, what are my strongest skills?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Summarize my resume",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Review my resume experience",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "List my resume skills",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "According to my resume, what did I study?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Can you improve my resume?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Explain the projects on my resume",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "What should I change in my resume?",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "Based on my resume, identify my strengths",
+    "expectedIntent": "RESUME"
+  },
+  {
+    "input": "What is the status of my application?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Show me my applications",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "List all my applications",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Which jobs have I applied to?",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Help me follow up on an application",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Show my application status",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Track my applications",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "I applied to this company last week",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "I need a follow-up email for my application",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "Show me jobs I already applied to",
+    "expectedIntent": "APPLICATION"
+  },
+  {
+    "input": "What should I learn next in my career?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How can I become a better engineer?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "Explain backend system design",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "What is a REST API?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "Tell me about distributed systems",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How do I prepare for technical interviews?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "What is the difference between SQL and NoSQL?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "What does CI/CD mean?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How do I improve my programming habits?",
+    "expectedIntent": "GENERAL"
+  },
+  {
+    "input": "How can I plan my career progression?",
+    "expectedIntent": "GENERAL"
+  }
+]

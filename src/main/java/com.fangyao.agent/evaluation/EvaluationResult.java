@@ -1,28 +1,27 @@
+
 package com.fangyao.agent.evaluation;
 
 import com.fangyao.agent.AgentIntent;
+import com.fangyao.agent.RoutingDecision;
 
 public class EvaluationResult {
 
     private final String input;
     private final AgentIntent expected;
-    private final AgentIntent actual;
-    private final long latencyMs;
+    private final RoutingDecision decision;
 
     public EvaluationResult(
             String input,
             AgentIntent expected,
-            AgentIntent actual,
-            long latencyMs
+            RoutingDecision decision
     ) {
         this.input = input;
         this.expected = expected;
-        this.actual = actual;
-        this.latencyMs = latencyMs;
+        this.decision = decision;
     }
 
     public boolean isCorrect() {
-        return expected == actual;
+        return expected == decision.intent();
     }
 
     public String getInput() {
@@ -34,10 +33,22 @@ public class EvaluationResult {
     }
 
     public AgentIntent getActual() {
-        return actual;
+        return decision.intent();
     }
 
     public long getLatencyMs() {
-        return latencyMs;
+        return decision.latencyMs();
+    }
+
+    public RoutingDecision.RoutingSource getSource() {
+        return decision.source();
+    }
+
+    public Double getConfidence() {
+        return decision.confidence();
+    }
+
+    public String getFallbackReason() {
+        return decision.fallbackReason();
     }
 }

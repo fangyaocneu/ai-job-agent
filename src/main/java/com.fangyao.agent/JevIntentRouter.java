@@ -1,5 +1,8 @@
 package com.fangyao.agent;
 
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
 public class JevIntentRouter {
 
     private static final double MIN_CONFIDENCE = 0.70;
@@ -7,30 +10,49 @@ public class JevIntentRouter {
     private final JevClient jevClient;
 
     public JevIntentRouter() {
-        this.jevClient
-                = new JevClient();
+        this(new JevClient());
     }
 
-    public AgentIntent route(
-            String message
-    ) {
+// Constructor injection for testing
+    public JevIntentRouter(JevClient jevClient) {
+        this.jevClient = java.util.Objects.requireNonNull(
+                jevClient,
+                "jevClient must not be null"
+        );
+    }
+
+    // =========================
+    // Backward-Compatible API
+    // =========================
+    public AgentIntent route(String message) {
+        return routeWithDetails(message).intent();
+    }
+
+    // =========================
+    // Routing with Observability
+    // =========================
+    public RoutingDecision routeWithDetails(String message) {
+
+        long start = System.nanoTime();
 
         // =========================
         // Fast Local Routing
         // =========================
-        AgentIntent localIntent
-                = tryLocalRoute(
-                        message
-                );
+        AgentIntent localIntent = tryLocalRoute(message);
 
         if (localIntent != null) {
 
             System.out.println(
-                    "[LOCAL ROUTE] intent="
-                    + localIntent
+                    "[LOCAL ROUTE] intent=" + localIntent
             );
 
-            return localIntent;
+            return buildDecision(
+                    localIntent,
+                    RoutingDecision.RoutingSource.LOCAL,
+                    null,
+                    start,
+                    null
+            );
         }
 
         // =========================
@@ -42,85 +64,152 @@ public class JevIntentRouter {
                     "[JEV FALLBACK] Jev unavailable. Defaulting to GENERAL."
             );
 
-            return AgentIntent.GENERAL;
+            return buildDecision(
+                    AgentIntent.GENERAL,
+                    RoutingDecision.RoutingSource.FALLBACK,
+                    null,
+                    start,
+                    "JEV_API_KEY_MISSING"
+            );
         }
 
         // =========================
-        // Jev Fallback
+        // Jev Classification
         // =========================
         try {
 
             JevClient.JevDecision decision
-                    = jevClient.classifyIntent(
-                            message
-                    );
+                    = jevClient.classifyIntent(message);
+
+            String choice = decision.getChoice();
+            double confidence = decision.getConfidence();
 
             System.out.println(
-                    "[JEV ROUTE] choice="
-                    + decision.getChoice()
-                    + ", confidence="
-                    + decision.getConfidence()
+                    "[JEV ROUTE] choice=" + choice
+                    + ", confidence=" + confidence
             );
 
-            if (decision.getConfidence()
-                    < MIN_CONFIDENCE) {
+            // =========================
+            // Confidence Validation
+            // =========================
+            if (!Double.isFinite(confidence)
+                    || confidence < 0.0
+                    || confidence > 1.0) {
+
+                System.out.println(
+                        "[JEV FALLBACK] Invalid confidence."
+                );
+
+                return buildDecision(
+                        AgentIntent.GENERAL,
+                        RoutingDecision.RoutingSource.FALLBACK,
+                        null,
+                        start,
+                        "INVALID_CONFIDENCE"
+                );
+            }
+
+            if (confidence < MIN_CONFIDENCE) {
 
                 System.out.println(
                         "[JEV FALLBACK] Low confidence. Defaulting to GENERAL."
                 );
 
-                return AgentIntent.GENERAL;
+                return buildDecision(
+                        AgentIntent.GENERAL,
+                        RoutingDecision.RoutingSource.FALLBACK,
+                        confidence,
+                        start,
+                        "LOW_CONFIDENCE"
+                );
             }
 
+            // =========================
+            // Intent Validation
+            // =========================
             try {
 
-                return AgentIntent.valueOf(
-                        decision.getChoice()
-                                .toUpperCase()
-                                .trim()
+                AgentIntent intent = AgentIntent.valueOf(
+                        choice.toUpperCase(Locale.ROOT).trim()
                 );
 
-            } catch (IllegalArgumentException e) {
+                return buildDecision(
+                        intent,
+                        RoutingDecision.RoutingSource.JEV,
+                        confidence,
+                        start,
+                        null
+                );
+
+            } catch (IllegalArgumentException
+                    | NullPointerException e) {
 
                 System.out.println(
-                        "[JEV FALLBACK] Unknown intent returned by Jev. Defaulting to GENERAL."
+                        "[JEV FALLBACK] Unknown intent returned by Jev."
                 );
 
-                return AgentIntent.GENERAL;
+                return buildDecision(
+                        AgentIntent.GENERAL,
+                        RoutingDecision.RoutingSource.FALLBACK,
+                        confidence,
+                        start,
+                        "UNKNOWN_INTENT"
+                );
             }
 
         } catch (Exception e) {
 
-            System.out.println(
+            System.err.println(
                     "[JEV ERROR] Failed to classify intent: "
                     + e.getMessage()
             );
 
-            System.out.println(
-                    "[JEV FALLBACK] Defaulting to GENERAL."
+            return buildDecision(
+                    AgentIntent.GENERAL,
+                    RoutingDecision.RoutingSource.FALLBACK,
+                    null,
+                    start,
+                    "JEV_REQUEST_FAILED"
             );
-
-            return AgentIntent.GENERAL;
         }
+    }
+
+    // =========================
+    // Build Routing Decision
+    // =========================
+    private RoutingDecision buildDecision(
+            AgentIntent intent,
+            RoutingDecision.RoutingSource source,
+            Double confidence,
+            long start,
+            String fallbackReason
+    ) {
+
+        long latencyMs = TimeUnit.NANOSECONDS.toMillis(
+                System.nanoTime() - start
+        );
+
+        return new RoutingDecision(
+                intent,
+                source,
+                confidence,
+                latencyMs,
+                fallbackReason
+        );
     }
 
     // =========================
     // Local Fast Path
     // =========================
-    private AgentIntent tryLocalRoute(
-            String message
-    ) {
+    private AgentIntent tryLocalRoute(String message) {
 
-        if (message == null
-                || message.isBlank()) {
-
+        if (message == null || message.isBlank()) {
             return null;
         }
 
-        String normalized
-                = message
-                        .toLowerCase()
-                        .trim();
+        String normalized = message
+                .toLowerCase(Locale.ROOT)
+                .trim();
 
         boolean hasUrl
                 = normalized.contains("http://")
@@ -164,46 +253,15 @@ public class JevIntentRouter {
         }
 
         // =========================
-        // JOB SEARCH
-        // =========================
-        boolean mentionsJob
-                = containsAny(
-                        normalized,
-                        "job",
-                        "jobs",
-                        "opening",
-                        "openings",
-                        "position",
-                        "positions",
-                        "role",
-                        "roles"
-                );
-
-        boolean hasJobSearchAction
-                = containsAny(
-                        normalized,
-                        "find",
-                        "search",
-                        "show",
-                        "recommend",
-                        "browse",
-                        "looking for"
-                );
-
-        if (!hasUrl
-                && mentionsJob
-                && hasJobSearchAction) {
-
-            System.out.println(
-                    "[LOCAL ROUTE] intent=JOB_SEARCH"
-            );
-
-            return AgentIntent.JOB_SEARCH;
-        }
-
-        // =========================
         // APPLICATION
         // =========================
+        // Check application intent BEFORE job search.
+        // This prevents existing application queries
+        // from being incorrectly routed to JOB_SEARCH.
+        //
+        // Example:
+        // "Show me jobs I already applied to"
+        // Expected: APPLICATION
         if (containsAny(
                 normalized,
                 "my application",
@@ -217,13 +275,48 @@ public class JevIntentRouter {
             return AgentIntent.APPLICATION;
         }
 
-        /*
-         * Ambiguous request:
-         * let Jev classify it if available.
-         */
+        // =========================
+        // JOB SEARCH
+        // =========================
+        boolean mentionsJob = containsAny(
+                normalized,
+                "job",
+                "jobs",
+                "opening",
+                "openings",
+                "position",
+                "positions",
+                "role",
+                "roles"
+        );
+
+        boolean hasJobSearchAction = containsAny(
+                normalized,
+                "find",
+                "search",
+                "show",
+                "recommend",
+                "browse",
+                "looking for"
+        );
+
+        if (!hasUrl
+                && mentionsJob
+                && hasJobSearchAction) {
+
+            return AgentIntent.JOB_SEARCH;
+        }
+
+        // =========================
+        // Ambiguous Request
+        // =========================
+        // Let Jev classify it if available.
         return null;
     }
 
+    // =========================
+    // Keyword Matching Helper
+    // =========================
     private boolean containsAny(
             String text,
             String... phrases
@@ -231,10 +324,7 @@ public class JevIntentRouter {
 
         for (String phrase : phrases) {
 
-            if (text.contains(
-                    phrase
-            )) {
-
+            if (text.contains(phrase)) {
                 return true;
             }
         }
