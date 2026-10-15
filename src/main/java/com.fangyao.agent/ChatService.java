@@ -1,5 +1,7 @@
 package com.fangyao.agent;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -7,6 +9,10 @@ import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
+import com.fangyao.agent.skills.SkillDefinition;
+import com.fangyao.agent.skills.SkillPromptComposer;
+import com.fangyao.agent.skills.SkillRegistry;
+import com.fangyao.agent.skills.SkillSelector;
 import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.openai.client.OpenAIClient;
@@ -35,6 +41,7 @@ public class ChatService {
     private final JevIntentRouter jevIntentRouter;
     private final UrlContentService urlContentService;
     private final JobDescriptionService jobDescriptionService;
+    private final SkillSelector skillSelector;
 
     // =========================
     // Constructor
@@ -66,6 +73,26 @@ public class ChatService {
                 = new ChatConversationRepository();
         this.jevIntentRouter
                 = new JevIntentRouter();
+        try {
+            SkillRegistry skillRegistry
+                    = new SkillRegistry(Path.of("skills"));
+
+            this.skillSelector
+                    = new SkillSelector(skillRegistry);
+
+            System.out.println(
+                    "[SKILLS] Registry initialized: "
+                    + skillRegistry.size()
+                    + " mapped skills"
+            );
+
+        } catch (IOException e) {
+
+            throw new IllegalStateException(
+                    "Failed to initialize Agent Skills",
+                    e
+            );
+        }
         this.urlContentService
                 = new UrlContentService();
         this.jobDescriptionService
@@ -465,6 +492,53 @@ public class ChatService {
                 + jevMs
                 + " ms"
         );
+        // =========================
+// Agent Skills Runtime
+// =========================
+
+        String skillInstructions = "";
+
+        try {
+
+            var selectedSkill
+                    = skillSelector.selectAndLoad(intent);
+
+            if (selectedSkill.isPresent()) {
+
+                SkillDefinition skill = selectedSkill.get();
+
+                skillInstructions = """
+                Selected Agent Skill: %s
+
+                Skill Instructions:
+                %s
+                """.formatted(
+                        skill.name(),
+                        skill.instructions()
+                );
+
+                System.out.println(
+                        "[SKILL SELECTED] " + skill.name()
+                );
+
+            } else {
+
+                System.out.println(
+                        "[SKILL] No skill mapped to " + intent
+                );
+            }
+
+        } catch (IOException e) {
+
+            System.err.println(
+                    "[SKILL LOAD FAILED] " + e.getMessage()
+            );
+
+            throw new IllegalStateException(
+                    "Failed to load selected Agent Skill",
+                    e
+            );
+        }
 
         // =========================
         // Keep all your existing chat logic below this point
@@ -699,6 +773,13 @@ public class ChatService {
                         historyContext,
                         message
                 );
+        SkillPromptComposer composer
+                = new SkillPromptComposer();
+
+        prompt = composer.compose(
+                prompt,
+                skillInstructions
+        );
 
         // =========================
         // Conversation Input
