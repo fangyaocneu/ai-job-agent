@@ -10,8 +10,8 @@ import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 
 import com.fangyao.agent.skills.SkillDefinition;
-import com.fangyao.agent.skills.SkillPromptComposer;
 import com.fangyao.agent.skills.SkillRegistry;
+import com.fangyao.agent.skills.SkillRuntime;
 import com.fangyao.agent.skills.SkillSelector;
 import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
@@ -773,13 +773,20 @@ public class ChatService {
                         historyContext,
                         message
                 );
-        SkillPromptComposer composer
-                = new SkillPromptComposer();
+        try {
+            SkillRuntime skillRuntime
+                    = new SkillRuntime(skillSelector);
 
-        prompt = composer.compose(
-                prompt,
-                skillInstructions
-        );
+            prompt = skillRuntime.buildPrompt(
+                    intent,
+                    prompt
+            );
+
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "Skill runtime failed", e
+            );
+        }
 
         // =========================
         // Conversation Input
