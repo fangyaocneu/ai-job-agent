@@ -1,5 +1,7 @@
 package com.fangyao.agent;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -7,6 +9,10 @@ import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
+import com.fangyao.agent.skills.ChatRequestInputFactory;
+import com.fangyao.agent.skills.SkillRegistry;
+import com.fangyao.agent.skills.SkillRuntime;
+import com.fangyao.agent.skills.SkillSelector;
 import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.openai.client.OpenAIClient;
@@ -35,6 +41,7 @@ public class ChatService {
     private final JevIntentRouter jevIntentRouter;
     private final UrlContentService urlContentService;
     private final JobDescriptionService jobDescriptionService;
+    private final SkillSelector skillSelector;
 
     // =========================
     // Constructor
@@ -66,6 +73,26 @@ public class ChatService {
                 = new ChatConversationRepository();
         this.jevIntentRouter
                 = new JevIntentRouter();
+        try {
+            SkillRegistry skillRegistry
+                    = new SkillRegistry(Path.of("skills"));
+
+            this.skillSelector
+                    = new SkillSelector(skillRegistry);
+
+            System.out.println(
+                    "[SKILLS] Registry initialized: "
+                    + skillRegistry.size()
+                    + " mapped skills"
+            );
+
+        } catch (IOException e) {
+
+            throw new IllegalStateException(
+                    "Failed to initialize Agent Skills",
+                    e
+            );
+        }
         this.urlContentService
                 = new UrlContentService();
         this.jobDescriptionService
@@ -467,6 +494,9 @@ public class ChatService {
         );
 
         // =========================
+        // Continue Existing Chat Logic
+        // =========================
+        // =========================
         // Keep all your existing chat logic below this point
         // =========================
         // =========================
@@ -699,6 +729,20 @@ public class ChatService {
                         historyContext,
                         message
                 );
+        try {
+            SkillRuntime skillRuntime
+                    = new SkillRuntime(skillSelector);
+
+            prompt = skillRuntime.buildPrompt(
+                    intent,
+                    prompt
+            );
+
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "Skill runtime failed", e
+            );
+        }
 
         // =========================
         // Conversation Input
@@ -733,19 +777,13 @@ public class ChatService {
             );
         }
 
-        inputs.add(
-                ResponseInputItem.ofMessage(
-                        ResponseInputItem.Message
-                                .builder()
-                                .role(
-                                        ResponseInputItem.Message.Role.USER
-                                )
-                                .addInputTextContent(
-                                        prompt
-                                )
-                                .build()
-                )
-        );
+        ChatRequestInputFactory inputFactory
+                = new ChatRequestInputFactory();
+
+        ChatRequestInputFactory.PreparedInput preparedInput
+                = inputFactory.prepare(prompt);
+
+        inputs.add(preparedInput.input());
 
         // =========================
         // Register Tools
