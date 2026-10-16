@@ -9,10 +9,12 @@ import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
+import com.fangyao.agent.skills.AgentTask;
 import com.fangyao.agent.skills.ChatRequestInputFactory;
 import com.fangyao.agent.skills.SkillRegistry;
 import com.fangyao.agent.skills.SkillRuntime;
 import com.fangyao.agent.skills.SkillSelector;
+import com.fangyao.agent.skills.TaskSelector;
 import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.openai.client.OpenAIClient;
@@ -729,18 +731,35 @@ public class ChatService {
                         historyContext,
                         message
                 );
+
+        // =========================
+        // V4 Task-Aware Skill Runtime
+        // =========================
+        TaskSelector taskSelector = new TaskSelector();
+
+        AgentTask task = taskSelector.select(
+                intent,
+                message
+        );
+
+        System.out.println(
+                "[AGENT TASK] " + task
+        );
+
         try {
             SkillRuntime skillRuntime
                     = new SkillRuntime(skillSelector);
 
             prompt = skillRuntime.buildPrompt(
-                    intent,
+                    task,
                     prompt
             );
 
         } catch (IOException e) {
+
             throw new IllegalStateException(
-                    "Skill runtime failed", e
+                    "Task-aware skill runtime failed",
+                    e
             );
         }
 

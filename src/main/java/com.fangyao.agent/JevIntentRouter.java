@@ -218,6 +218,56 @@ public class JevIntentRouter {
         // =========================
         // JOB MATCH
         // =========================
+        
+        // =========================
+        // V4: Explicit JD Analysis
+        // =========================
+        // Route JD analysis to JOB_MATCH.
+        // TaskSelector will distinguish JD_ANALYSIS
+        // from JOB_MATCHING.
+
+        if (containsAny(
+                normalized,
+                "analyze jd",
+                "analyse jd",
+                "analyze this jd",
+                "analyze this job",
+                "analyze job description",
+                "job description analysis",
+                "分析jd",
+                "解析jd",
+                "分析職缺",
+                "職缺要求"
+        )) {
+            return AgentIntent.JOB_MATCH;
+        }
+
+        // =========================
+        // V4: Explicit Resume-to-Job Matching
+        // =========================
+        // Must run before the general RESUME rule.
+
+        boolean mentionsResume = containsAny(
+                normalized,
+                "my resume",
+                "my cv",
+                "我的履歷"
+        );
+
+        boolean mentionsMatch = containsAny(
+                normalized,
+                "match",
+                "fit this job",
+                "fit this role",
+                "qualified for",
+                "匹配",
+                "適合這個職缺"
+        );
+
+        if (mentionsResume && mentionsMatch) {
+            return AgentIntent.JOB_MATCH;
+        }
+
         if (hasUrl
                 && containsAny(
                         normalized,
