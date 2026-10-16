@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
-import com.fangyao.agent.skills.SkillDefinition;
+import com.fangyao.agent.skills.ChatRequestInputFactory;
 import com.fangyao.agent.skills.SkillRegistry;
 import com.fangyao.agent.skills.SkillRuntime;
 import com.fangyao.agent.skills.SkillSelector;
@@ -492,54 +492,10 @@ public class ChatService {
                 + jevMs
                 + " ms"
         );
+
         // =========================
-// Agent Skills Runtime
-// =========================
-
-        String skillInstructions = "";
-
-        try {
-
-            var selectedSkill
-                    = skillSelector.selectAndLoad(intent);
-
-            if (selectedSkill.isPresent()) {
-
-                SkillDefinition skill = selectedSkill.get();
-
-                skillInstructions = """
-                Selected Agent Skill: %s
-
-                Skill Instructions:
-                %s
-                """.formatted(
-                        skill.name(),
-                        skill.instructions()
-                );
-
-                System.out.println(
-                        "[SKILL SELECTED] " + skill.name()
-                );
-
-            } else {
-
-                System.out.println(
-                        "[SKILL] No skill mapped to " + intent
-                );
-            }
-
-        } catch (IOException e) {
-
-            System.err.println(
-                    "[SKILL LOAD FAILED] " + e.getMessage()
-            );
-
-            throw new IllegalStateException(
-                    "Failed to load selected Agent Skill",
-                    e
-            );
-        }
-
+        // Continue Existing Chat Logic
+        // =========================
         // =========================
         // Keep all your existing chat logic below this point
         // =========================
@@ -821,19 +777,13 @@ public class ChatService {
             );
         }
 
-        inputs.add(
-                ResponseInputItem.ofMessage(
-                        ResponseInputItem.Message
-                                .builder()
-                                .role(
-                                        ResponseInputItem.Message.Role.USER
-                                )
-                                .addInputTextContent(
-                                        prompt
-                                )
-                                .build()
-                )
-        );
+        ChatRequestInputFactory inputFactory
+                = new ChatRequestInputFactory();
+
+        ChatRequestInputFactory.PreparedInput preparedInput
+                = inputFactory.prepare(prompt);
+
+        inputs.add(preparedInput.input());
 
         // =========================
         // Register Tools
